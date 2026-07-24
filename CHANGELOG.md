@@ -2,7 +2,10 @@
 
 ## 1.0.0
 
-- Rebuilt Soul Burn as an Actor-backed Foundry dnd5e macro.
+- Packaged Soul Burn as an installable Foundry module.
+- Added Foundry 11 build 315 / dnd5e 2.4.1 as the primary baseline.
+- Added guarded forward compatibility for Foundry 12 and 13.
+- Added a managed world macro and character-sheet header control.
 - Made the character sheet's tertiary resource authoritative.
 - Added player/GM Actor and token resolution.
 - Added multiclass-aware Hit Die consumption.

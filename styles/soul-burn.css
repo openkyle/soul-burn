@@ -1,0 +1,18 @@
+.soul-burn-rules {
+  font-size: var(--font-size-16);
+  line-height: 1.35;
+}
+
+.soul-burn-rules h2 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: var(--font-size-20);
+  border: 0;
+}
+
+.soul-burn-rules p {
+  margin: 0.25rem 0 0.75rem;
+}
+
+.window-header .soul-burn-open i {
+  color: #f59b23;
+}

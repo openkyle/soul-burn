@@ -81,10 +81,11 @@ Each use increases AG Tolerance by 1, to a maximum of 19. The chat card reports
 the raw roll, blocked amount, Soul Burn removed, before/after resource values,
 and before/after tolerance.
 
-## Requirements
+## Compatibility and requirements
 
-- Foundry Virtual Tabletop
-- The dnd5e game system
+- Primary baseline: **Foundry VTT 11 Stable, build 315**
+- Primary baseline: **dnd5e 2.4.1**
+- Forward-compatible manifest and guarded APIs for Foundry VTT 12 and 13
 - An Actor with dnd5e class items and Hit Dice
 - The Actor's third resource configured as **Soul Burn**
 
@@ -101,12 +102,12 @@ asset URLs. Configure the constants at the top of
 
 ## Installation
 
-1. In Foundry, create a new macro.
-2. Set its type to **Script**.
-3. Copy the complete contents of
-   [`soul-burn-macro.js`](./soul-burn-macro.js) into the command field.
-4. Save it as **Soul Burn**.
-5. Give players at least Observer permission on the macro.
+1. Open Foundry's **Add-on Modules** tab.
+2. Click **Install Module**.
+3. Paste the manifest URL from the latest GitHub release.
+4. Enable **Soul Burn** in the world and reload once.
+5. The module creates a player-visible **Soul Burn** world macro and adds a
+   Soul Burn control to supported dnd5e character-sheet headers.
 6. Ensure each player owns their Actor and has that Actor assigned as their
    user character.
 7. On the character sheet, set the tertiary resource label to `Soul Burn`.
@@ -199,11 +200,10 @@ TokenMagic filter, and restores the original token image.
 
 ## Validation
 
-The macro uses top-level `await`, as supported by Foundry script macros. For an
-external syntax check, wrap the file in an async function:
+The module JavaScript can be syntax-checked directly:
 
 ```bash
-node -e "const fs=require('fs'),vm=require('vm');const s=fs.readFileSync('soul-burn-macro.js','utf8');new vm.Script('(async()=>{'+s+'\\n})()')"
+node --check scripts/soul-burn.js
 ```
 
 ## License

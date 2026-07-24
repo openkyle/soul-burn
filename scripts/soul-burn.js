@@ -19,7 +19,13 @@ const SB = {
 };
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-const esc = value => foundry.utils.escapeHTML(String(value ?? ""));
+const esc = value => {
+  const text = String(value ?? "");
+  if (foundry.utils.escapeHTML) return foundry.utils.escapeHTML(text);
+  const element = document.createElement("div");
+  element.textContent = text;
+  return element.innerHTML;
+};
 const cleanName = name => String(name ?? "").replace(/\[.*?]/g, "").trim();
 const notifyError = error => {
   console.error("Soul Burn |", error);
@@ -49,7 +55,14 @@ function actorTokens(actor) {
   return canvas.tokens.placeables.filter(t => t.actor?.id === actor.id);
 }
 
-async function resolveSubject() {
+async function resolveSubject(preferredActor = null, preferredToken = null) {
+  if (preferredActor) {
+    if (!game.user.isGM && !preferredActor.isOwner) {
+      throw new Error("You do not own this character.");
+    }
+    const token = preferredToken ?? actorTokens(preferredActor)[0] ?? null;
+    return { actor: preferredActor, token };
+  }
   const controlled = canvas.tokens.controlled;
   if (controlled.length > 1) throw new Error("Select only one token.");
 
@@ -224,7 +237,7 @@ function toleranceLine(value) {
     "The release barely works.",
     "Aetherglow gives almost nothing."
   ];
-  return lines[Math.clamp(Number(value) || 0, 0, 19)];
+  return lines[Math.min(19, Math.max(0, Number(value) || 0))];
 }
 
 async function playAnimation(token, nextState) {
@@ -292,7 +305,7 @@ async function playAnimation(token, nextState) {
 }
 
 async function applyMovement(actor) {
-  const existing = actor.effects.find(e => e.name === SB.effectName && e.getFlag(SB.scope, "managed"));
+  const existing = actor.effects.find(e => (e.name ?? e.label) === SB.effectName && e.getFlag(SB.scope, "managed"));
   if (existing) return;
 
   const movement = actor.system.attributes?.movement ?? {};
@@ -306,6 +319,7 @@ async function applyMovement(actor) {
     }));
 
   await actor.createEmbeddedDocuments("ActiveEffect", [{
+    label: SB.effectName,
     name: SB.effectName,
     icon: "icons/magic/holy/meditation-chi-focus-blue.webp",
     changes,
@@ -334,7 +348,7 @@ async function removeVisuals(actor, savedState) {
   }
 
   const effects = actor.effects
-    .filter(e => e.name === SB.effectName && e.getFlag(SB.scope, "managed"))
+    .filter(e => (e.name ?? e.label) === SB.effectName && e.getFlag(SB.scope, "managed"))
     .map(e => e.id);
   if (effects.length) await actor.deleteEmbeddedDocuments("ActiveEffect", effects);
 }
@@ -655,9 +669,50 @@ async function dashboard(actor, token) {
   if (action === "reset") await resetChannel(actor);
 }
 
-try {
-  const subject = await resolveSubject();
-  if (subject) await dashboard(subject.actor, subject.token);
-} catch (error) {
-  notifyError(error);
+async function openSoulBurn({ actor = null, token = null } = {}) {
+  try {
+    const subject = await resolveSubject(actor, token);
+    if (subject) await dashboard(subject.actor, subject.token);
+  } catch (error) {
+    notifyError(error);
+  }
 }
+
+Hooks.once("ready", async () => {
+  game.soulBurn = Object.freeze({
+    open: openSoulBurn,
+    getState: actor => state(actor),
+    version: "1.0.0"
+  });
+
+  if (!game.user.isGM) return;
+  const command = "game.soulBurn.open();";
+  let macro = game.macros.getName("Soul Burn");
+  if (!macro) {
+    macro = await Macro.create({
+      name: "Soul Burn",
+      type: "script",
+      img: "icons/magic/holy/meditation-chi-focus-blue.webp",
+      command,
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+      flags: { "soul-burn": { managed: true } }
+    });
+    ui.notifications.info("Soul Burn | Player macro created.");
+  } else if (macro.getFlag("soul-burn", "managed") && macro.command !== command) {
+    await macro.update({ command });
+  }
+});
+
+// Adds a sheet-header control on dnd5e sheets that support this standard hook.
+Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
+  const actor = sheet.actor;
+  if (!actor || actor.type !== "character") return;
+  if (!game.user.isGM && !actor.isOwner) return;
+  if (buttons.some(button => button.class === "soul-burn-open")) return;
+  buttons.unshift({
+    label: "Soul Burn",
+    class: "soul-burn-open",
+    icon: "fas fa-fire",
+    onclick: () => openSoulBurn({ actor })
+  });
+});

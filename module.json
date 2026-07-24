@@ -1,0 +1,53 @@
+{
+  "id": "soul-burn",
+  "title": "Soul Burn",
+  "description": "A complete player and GM workflow for the Soul Burn homebrew system in Foundry VTT dnd5e.",
+  "version": "1.0.0",
+  "compatibility": {
+    "minimum": "11",
+    "verified": "13"
+  },
+  "authors": [
+    {
+      "name": "edgedoggo"
+    }
+  ],
+  "esmodules": [
+    "scripts/soul-burn.js"
+  ],
+  "styles": [
+    "styles/soul-burn.css"
+  ],
+  "relationships": {
+    "systems": [
+      {
+        "id": "dnd5e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "2.4.1"
+        }
+      }
+    ],
+    "recommends": [
+      {
+        "id": "sequencer",
+        "type": "module",
+        "reason": "Plays the Soul Burn sound and JB2A transformation."
+      },
+      {
+        "id": "jb2a_patreon",
+        "type": "module",
+        "reason": "Provides the supplied Sacred Flame transformation asset."
+      },
+      {
+        "id": "tokenmagic",
+        "type": "module",
+        "reason": "Provides the persistent white flame token filter."
+      }
+    ]
+  },
+  "url": "https://github.com/edgedoggo/soul-burn",
+  "manifest": "https://github.com/edgedoggo/soul-burn/releases/latest/download/module.json",
+  "download": "https://github.com/edgedoggo/soul-burn/releases/latest/download/soul-burn.zip",
+  "license": "LICENSE"
+}

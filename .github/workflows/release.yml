@@ -1,0 +1,32 @@
+name: Release Foundry Module
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build module archive
+        run: |
+          mkdir -p dist/soul-burn
+          cp module.json LICENSE README.md CHANGELOG.md dist/soul-burn/
+          cp -R scripts styles dist/soul-burn/
+          cd dist
+          zip -r soul-burn.zip soul-burn
+          cp ../module.json module.json
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/module.json
+            dist/soul-burn.zip
+          generate_release_notes: true
