@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.4
+
+- Replaced Aetherglow Charge with the Legendary equipment item **Holy Amulet
+  of Lux Eterna**, using the supplied amulet art.
+- Configured the amulet as a trinket with 6 limited charges, one-action use,
+  healing action type, 1 lb. weight, and 230 gp value.
+- One `1d20` roll now heals every recipient and also releases Soul Burn for
+  configured recipients after applying AG Tolerance.
+- Added removal of charmed, poisoned, petrified, temporary ability-score
+  reductions, and temporary maximum-HP reductions.
+- Added direct-use charge spending and one-use locking for Aetherglow chat
+  cards.
+- Removed the Soul Burn character-sheet header control. Soul Burn now enters
+  through the feature's chat-card button.
+
 ## 1.0.3
 
 - Replaced the Soul Burn, AetherStrike, Channel Aether, and Fate Shift icons

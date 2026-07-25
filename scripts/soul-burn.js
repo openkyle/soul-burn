@@ -730,6 +730,26 @@ async function fateShift(actor) {
   await endBurn(actor, "Fate Shift");
 }
 
+async function cleanseAetherglowEffects(actor) {
+  const removableStatuses = new Set(["charmed", "poisoned", "petrified"]);
+  const effects = actor.effects.filter(effect => {
+    const statuses = new Set(effect.statuses ?? []);
+    const coreStatus = effect.getFlag("core", "statusId");
+    if (coreStatus) statuses.add(coreStatus);
+    if ([...statuses].some(status => removableStatuses.has(status))) return true;
+
+    return effect.changes.some(change => {
+      const value = Number(change.value);
+      if (!Number.isFinite(value) || value >= 0) return false;
+      if (/^system\.abilities\.[a-z]+\.value$/i.test(change.key)) return true;
+      return change.key === "system.attributes.hp.max";
+    });
+  });
+  if (!effects.length) return [];
+  await actor.deleteEmbeddedDocuments("ActiveEffect", effects.map(effect => effect.id));
+  return effects.map(effect => effect.name ?? effect.label);
+}
+
 async function applyAetherglow(targetActor, sourceActor = targetActor) {
   const current = state(targetActor);
   const drinkingSound = soundPath("aetherglowSound");
@@ -740,59 +760,70 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
       console.warn("Soul Burn | Aetherglow sound skipped.", error);
     }
   }
+
   const roll = await makeRoll("1d20");
+  const hp = targetActor.system.attributes?.hp ?? {};
+  const oldHp = Number(hp.value ?? 0);
+  const maxHp = Number(hp.max ?? oldHp);
+  const healing = Math.max(0, Math.min(roll.total, maxHp - oldHp));
+  if (healing > 0) {
+    await targetActor.update({ "system.attributes.hp.value": oldHp + healing });
+  }
+  const cleansed = await cleanseAetherglowEffects(targetActor);
+  const nextTolerance = Math.min(19, current.tolerance + 1);
+  const healingSummary = `
+    <p><strong>Healing Roll:</strong> ${roll.total}</p>
+    <p><strong>Hit Points Restored:</strong> ${healing}</p>
+    <p><strong>Hit Points:</strong> ${oldHp} → ${oldHp + healing} / ${maxHp}</p>
+    <p><strong>Effects Removed:</strong> ${cleansed.length ? cleansed.map(esc).join(", ") : "None"}</p>`;
 
   if (!hasSoulBurnResource(targetActor)) {
-    const hp = targetActor.system.attributes?.hp ?? {};
-    const oldHp = Number(hp.value ?? 0);
-    const maxHp = Number(hp.max ?? oldHp);
-    const healing = Math.max(0, Math.min(roll.total, maxHp - oldHp));
-    const next = {
-      ...current,
-      tolerance: Math.min(19, current.tolerance + 1)
-    };
-    if (healing > 0) {
-      await targetActor.update({ "system.attributes.hp.value": oldHp + healing });
-    }
+    const next = { ...current, tolerance: nextTolerance };
     await saveMetadataOnly(targetActor, next);
     await chat(
       targetActor,
       "Aetherglow Consumed",
       `<p><strong>${esc(sourceActor.name)}</strong> gives Aetherglow to <strong>${esc(targetActor.name)}</strong>.</p>
-       <p>No Soul Burn tertiary resource was found, so Aetherglow restores vitality instead.</p>
-       <p><strong>Healing Roll:</strong> ${roll.total}</p>
-       <p><strong>Hit Points Restored:</strong> ${healing}</p>
-       <p><strong>Hit Points:</strong> ${oldHp} → ${oldHp + healing} / ${maxHp}</p>
+       ${healingSummary}
+       <p><strong>Soul Burn:</strong> No Soul Burn resource—no release required.</p>
        <p><strong>AG Tolerance:</strong> ${current.tolerance} → ${next.tolerance}</p>
        <p><em>AG Tolerance still rises because the soul remembers every exposure to Aetherglow.</em></p>`,
       roll
     );
-    return;
+    return true;
   }
 
   const removed = Math.max(1, roll.total - current.tolerance);
+  const blocked = Math.max(0, roll.total - removed);
   const next = {
     ...current,
     burn: Math.max(0, current.burn - removed),
-    tolerance: Math.min(19, current.tolerance + 1)
+    tolerance: nextTolerance
   };
   await saveState(targetActor, next);
   await chat(
     targetActor,
     "Aetherglow Consumed",
     `<p><strong>${esc(sourceActor.name)}</strong> gives Aetherglow to <strong>${esc(targetActor.name)}</strong>.</p>
+     ${healingSummary}
      <p><strong>${esc(targetActor.name)}</strong> rolled <strong>${roll.total}</strong> to release Soul Burn.</p>
      <p><strong>AG Tolerance:</strong> ${current.tolerance}</p>
-     <p><strong>Aetherglow Blocked:</strong> ${Math.max(0, roll.total - removed)}</p>
+     <p><strong>Aetherglow Blocked:</strong> ${blocked}</p>
      <p><strong>Soul Burn Removed:</strong> ${removed}</p>
      <p><strong>Soul Burn:</strong> ${current.burn} → ${next.burn}</p>
      <p><strong>AG Tolerance:</strong> ${current.tolerance} → ${next.tolerance}</p>
      <p><em>${toleranceLine(next.tolerance)}</em></p>`,
     roll
   );
+  return true;
 }
 
-async function consumeAetherglow(sourceActor) {
+async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent = false } = {}) {
+  const amulet = item ?? sourceActor.items.find(
+    ownedItem => ownedItem.getFlag("soul-burn", "action") === "glow"
+  );
+  if (!amulet) throw new Error(`${sourceActor.name} does not have the Holy Amulet of Lux Eterna.`);
+
   const candidates = game.actors
     .filter(actor => actor.type === "character" && (actor.hasPlayerOwner || actor.id === sourceActor.id))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -821,9 +852,15 @@ async function consumeAetherglow(sourceActor) {
     },
     "give"
   );
-  if (!targetActorId) return;
+  if (!targetActorId) return false;
   const targetActor = game.actors.get(targetActorId);
   if (!targetActor) throw new Error("The selected Aetherglow recipient no longer exists.");
+
+  if (!chargeAlreadySpent) {
+    const charges = Number(amulet.system.uses?.value ?? 0);
+    if (charges <= 0) throw new Error("The Holy Amulet of Lux Eterna has no charges remaining.");
+    await amulet.update({ "system.uses.value": charges - 1 });
+  }
 
   if (game.user.isGM || targetActor.isOwner) {
     return applyAetherglow(targetActor, sourceActor);
@@ -841,6 +878,7 @@ async function consumeAetherglow(sourceActor) {
     targetActorId: targetActor.id
   });
   ui.notifications.info(`Aetherglow was offered to ${targetActor.name}. The GM is resolving it.`);
+  return true;
 }
 
 async function resetChannel(actor) {
@@ -850,7 +888,12 @@ async function resetChannel(actor) {
   ui.notifications.info(`Channel Aether reset for ${actor.name}.`);
 }
 
-async function runSoulBurnAction(action, { actor = null, token = null } = {}) {
+async function runSoulBurnAction(action, {
+  actor = null,
+  token = null,
+  item = null,
+  chargeAlreadySpent = false
+} = {}) {
   try {
     const subject = await resolveSubject(actor, token);
     if (!subject) return;
@@ -859,12 +902,12 @@ async function runSoulBurnAction(action, { actor = null, token = null } = {}) {
       strike: () => aetherStrike(subject.actor),
       channel: () => channelAether(subject.actor),
       fate: () => fateShift(subject.actor),
-      glow: () => consumeAetherglow(subject.actor),
+      glow: () => consumeAetherglow(subject.actor, { item, chargeAlreadySpent }),
       end: () => endBurn(subject.actor),
       reset: () => resetChannel(subject.actor)
     };
     if (!actions[action]) throw new Error(`Unknown Soul Burn action: ${action}`);
-    await actions[action]();
+    return await actions[action]();
   } catch (error) {
     notifyError(error);
   }
@@ -997,7 +1040,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.3"
+    version: "1.0.4"
   });
 
   game.socket.on("module.soul-burn", async request => {
@@ -1048,37 +1091,11 @@ Hooks.once("ready", async () => {
   }
 });
 
-// Adds a sheet-header control on dnd5e sheets that support this standard hook.
-Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
-  const actor = sheet.actor;
-  if (!actor || actor.type !== "character") return;
-  if (!game.user.isGM && !actor.isOwner) return;
-  if (buttons.some(button => button.class === "soul-burn-open")) return;
-  buttons.unshift({
-    label: "Soul Burn",
-    class: "soul-burn-open",
-    icon: "fas fa-fire",
-    onclick: () => openSoulBurn({ actor })
-  });
-});
-
-function bindFeatureButtons(app, html, actor) {
-  if (!actor || actor.type !== "character") return;
-  if (!game.user.isGM && !actor.isOwner) return;
-  html.find("[data-soul-burn-action]")
-    .off("click.soulBurn")
-    .on("click.soulBurn", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      runSoulBurnAction(event.currentTarget.dataset.soulBurnAction, { actor });
-    });
-}
-
-Hooks.on("renderActorSheet", (app, html) => bindFeatureButtons(app, html, app.actor));
-Hooks.on("renderItemSheet", (app, html) => bindFeatureButtons(app, html, app.item?.parent));
 Hooks.on("renderChatMessage", (message, html) => {
-  const actor = game.actors.get(message.speaker?.actor);
-  bindFeatureButtons(message, html, actor);
+  if (!message.getFlag("soul-burn", "aetherglowResolved")) return;
+  html.find('[data-soul-burn-action="glow"]')
+    .prop("disabled", true)
+    .html('<i class="fas fa-check"></i> Aetherglow Used');
 });
 
 Hooks.on("createItem", async (item, _options, userId) => {
@@ -1092,16 +1109,46 @@ Hooks.on("createItem", async (item, _options, userId) => {
 // Delegation at document level keeps compendium feature buttons dependable.
 $(document)
   .off("click.soulBurnGlobal", "[data-soul-burn-action]")
-  .on("click.soulBurnGlobal", "[data-soul-burn-action]", event => {
+  .on("click.soulBurnGlobal", "[data-soul-burn-action]", async event => {
     event.preventDefault();
     event.stopPropagation();
     const button = $(event.currentTarget);
+    const action = event.currentTarget.dataset.soulBurnAction;
     const messageId = button.closest(".chat-message").data("message-id");
-    const messageActorId = messageId ? game.messages.get(messageId)?.speaker?.actor : null;
+    const message = messageId ? game.messages.get(messageId) : null;
+    if (action === "glow" && message?.getFlag("soul-burn", "aetherglowResolved")) {
+      return ui.notifications.warn("This Aetherglow chat-card charge has already been used.");
+    }
+    const messageActorId = message?.speaker?.actor;
     const appId = button.closest(".app").data("appid");
     const app = appId ? ui.windows[appId] : null;
     const actor = messageActorId
       ? game.actors.get(messageActorId)
       : app?.actor ?? app?.item?.parent ?? null;
-    runSoulBurnAction(event.currentTarget.dataset.soulBurnAction, { actor });
+    const rowItemId = button.closest("[data-item-id]").data("item-id");
+    const item = app?.item
+      ?? (rowItemId && actor ? actor.items.get(rowItemId) : null)
+      ?? (action === "glow" && actor
+        ? actor.items.find(ownedItem => ownedItem.getFlag("soul-burn", "action") === "glow")
+        : null);
+    button.prop("disabled", true);
+    try {
+      const completed = await runSoulBurnAction(action, {
+        actor,
+        item,
+        chargeAlreadySpent: action === "glow" && Boolean(message)
+      });
+      if (action === "glow" && completed === true && message) {
+        try {
+          await message.setFlag("soul-burn", "aetherglowResolved", true);
+          button.html('<i class="fas fa-check"></i> Aetherglow Used');
+        } catch (error) {
+          console.warn("Soul Burn | Could not lock the used Aetherglow chat card.", error);
+        }
+      }
+    } finally {
+      if (action !== "glow" || !message?.getFlag("soul-burn", "aetherglowResolved")) {
+        button.prop("disabled", false);
+      }
+    }
   });

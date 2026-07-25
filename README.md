@@ -115,8 +115,8 @@ Configure the constant at the top of
 2. Click **Install Module**.
 3. Paste the manifest URL from the latest GitHub release.
 4. Enable **Soul Burn** in the world and reload once.
-5. The module creates a player-visible **Soul Burn** world macro and adds a
-   Soul Burn control to supported dnd5e character-sheet headers.
+5. The module creates a player-visible **Soul Burn** world macro as an optional
+   hotbar launcher.
 6. Ensure each player owns their Actor and has that Actor assigned as their
    user character.
 7. On the character sheet, set the tertiary resource label to `Soul Burn`.
@@ -127,7 +127,7 @@ Configure the constant at the top of
 The module includes one compendium pack:
 
 - **Soul Burn Features** contains Soul Burn, AetherStrike, Channel Aether,
-  Fate Shift, and the Aetherglow Charge consumable. Drag these onto a player
+  Fate Shift, and the Holy Amulet of Lux Eterna. Drag these onto a player
   character sheet.
   Each feature includes a button that runs its module-managed action for the
   owning Actor.
@@ -154,20 +154,28 @@ system.resources.tertiary.label
 Dropping the Soul Burn feature onto a character automatically labels the
 tertiary resource `Soul Burn` and calculates its maximum when blank. Characters
 who already had the feature are repaired the next time a GM loads the world.
+Use the feature to post its chat card, then click **Enter Soul Burn** on that
+card. The module does not add a control to the top of character sheets.
 
-### Aetherglow item
+### Holy Amulet of Lux Eterna
 
-The compendium's **Aetherglow Charge** is the only Aetherglow trigger; there is
-no separate Aetherglow macro. Its chat-card button asks which player character
-receives the charge.
+The compendium's Legendary **Holy Amulet of Lux Eterna** equipment is the only
+Aetherglow trigger; there is no separate Aetherglow macro. It is a 1 lb.
+trinket worth 230 gp with six limited charges. Its chat-card button asks which
+player character receives the Aetherglow.
 
-- A recipient with `Soul Burn` as the tertiary resource rolls against Soul
-  Burn using AG Tolerance.
-- A recipient without that resource heals `1d20` HP instead. Their unrelated
+- Every recipient heals from the same `1d20` roll.
+- A recipient with `Soul Burn` as the tertiary resource also releases Soul
+  Burn using that roll after AG Tolerance.
+- A recipient without that resource is still healed, and their unrelated
   tertiary resource is never renamed or changed.
+- The amulet removes charmed, poisoned, petrified, temporary ability-score
+  reductions, and temporary maximum-HP reductions.
 - Every exposure raises AG Tolerance by 1, to a maximum of 19.
 - If a player gives it to an Actor they do not own, an active GM securely
   performs the document update.
+- Direct activation spends a charge. A normal dnd5e item use spends its charge
+  when it posts the card, and that chat-card button is locked after resolution.
 
 ### GM player management
 
