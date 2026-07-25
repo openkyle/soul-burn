@@ -1,16 +1,16 @@
 .soul-burn-rules {
-  font-size: var(--font-size-16);
-  line-height: 1.35;
+  font-size: var(--font-size-14);
+  line-height: 1.25;
 }
 
 .soul-burn-rules h2 {
-  margin: 0.75rem 0 0.25rem;
-  font-size: var(--font-size-20);
+  margin: 0.55rem 0 0.15rem;
+  font-size: var(--font-size-17);
   border: 0;
 }
 
 .soul-burn-rules p {
-  margin: 0.25rem 0 0.75rem;
+  margin: 0.15rem 0 0.5rem;
 }
 
 .soul-burn-sound-form .form-fields input {

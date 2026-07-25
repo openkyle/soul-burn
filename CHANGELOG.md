@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.10
+
+- Added an upgrade cleanup for the stale, unopenable `AetherSurgeFeat`
+  compendium index record introduced by v1.0.8.
+- Soul Burn Features now displays only the canonical, clickable AetherSurge
+  entry after updating and reloading, including on installations whose
+  compendium index retained the obsolete record.
+- Simplified the active Luminara dashboard to Player Uses, More Info, and one
+  centered full-width **End Soul Burn** button; combat actions remain in the
+  dedicated Soul Burn sheet tab.
+- Reduced More Info rules-dialog typography and spacing.
+
 ## 1.0.9
 
 - Reuses existing owned AetherSurge, Channel Aether, and Fate Shift Items while

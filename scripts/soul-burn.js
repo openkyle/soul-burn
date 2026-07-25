@@ -527,6 +527,25 @@ async function removeTemporarySoulBurnActions(actor) {
   if (ids.length) await actor.deleteEmbeddedDocuments("Item", ids);
 }
 
+async function cleanLegacyCompendiumIndex() {
+  try {
+    const pack = game.packs.get(SB.pack);
+    if (!pack) return;
+    const index = await pack.getIndex();
+    const has = id => index.has?.(id) ?? index.some?.(entry => entry._id === id);
+    if (!has("AetherStrikeFeat") || !has("AetherSurgeFeat")) return;
+
+    // v1.0.8 briefly changed the document ID during the rename. Some Foundry
+    // installations retained that old index entry when updating the module.
+    // The packaged database is clean; removing the stale in-memory entry keeps
+    // upgraded clients from displaying an unopenable duplicate.
+    index.delete?.("AetherSurgeFeat");
+    pack.index?.delete?.("AetherSurgeFeat");
+  } catch (error) {
+    console.warn("Soul Burn | Could not clean the legacy compendium index.", error);
+  }
+}
+
 function renderActorSheetSoon(actor) {
   if (!actor?.sheet?.rendered) return;
   // A full render is intentional: Tidy rebuilds its tab navigation only on a
@@ -1261,11 +1280,10 @@ async function dashboard(actor, token) {
     : "";
 
   const activeButtons = current.active ? `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px">
-      <button type="button" data-sb-action="surge"><i class="fas fa-burst"></i> AetherSurge</button>
-      <button type="button" data-sb-action="channel"><i class="fas fa-sun"></i> Channel Aether</button>
-      <button type="button" data-sb-action="fate"><i class="fas fa-wand-magic-sparkles"></i> Fate Shift</button>
-      <button type="button" data-sb-action="end"><i class="fas fa-stop"></i> End Burn</button>
+    <div style="display:flex;justify-content:center;margin-top:10px">
+      <button type="button" data-sb-action="end" style="width:100%;min-height:38px">
+        <i class="fas fa-stop"></i> END SOUL BURN
+      </button>
     </div>` : "";
 
   const action = await new Promise(resolve => {
@@ -1400,13 +1418,28 @@ Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
   }
 });
 
+Hooks.on("renderCompendium", (app, html) => {
+  if (app.collection?.collection !== SB.pack) return;
+  const canonicalExists = app.collection.index?.has?.("AetherStrikeFeat")
+    ?? app.collection.index?.some?.(entry => entry._id === "AetherStrikeFeat");
+  if (!canonicalExists) return;
+  const root = html?.jquery ? html : $(html);
+  root.find(
+    '[data-document-id="AetherSurgeFeat"], '
+    + '[data-entry-id="AetherSurgeFeat"], '
+    + '[data-id="AetherSurgeFeat"]'
+  ).remove();
+});
+
 Hooks.once("ready", async () => {
   game.soulBurn = Object.freeze({
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.9"
+    version: "1.0.10"
   });
+
+  await cleanLegacyCompendiumIndex();
 
   game.socket.on("module.soul-burn", async request => {
     if (!game.user.isGM || request?.gmId !== game.user.id) return;
