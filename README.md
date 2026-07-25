@@ -232,7 +232,10 @@ only after the player confirms activation.
 
 Saving an inactive character at **0 Soul Burn** also removes that tertiary
 resource from their sheet. **Save Changes** closes Player Management after the
-update. Active burns must be ended before their resource can be cleared.
+update. If either clear path is used during an active burn, the module first
+runs the complete normal ending workflow—including Burnout resolution, visual
+and movement restoration, end sound, chat output, and the configured
+Constitution check—then removes the resource.
 
 ### Combat duration and ending
 
@@ -319,17 +322,17 @@ Stored metadata includes:
 
 Activation preserves the supplied sequence:
 
-1. Send a refractive ripple outward from the activating token for all clients
-   viewing the scene.
-2. Leave the battlefield at the configured contrast and desaturation, then
+1. Play `AetherUp3.ogg`.
+2. Wait 700 ms.
+3. Play the yellow JB2A Sacred Flame explosion for 5.4 seconds at 2× scale.
+4. Apply the animated white TokenMagic fire filter.
+5. Swap the token to the campaign-specific transformed image.
+6. Send the grayscale refractive ripple outward from the transformed token for
+   all clients viewing the scene.
+7. Leave the battlefield at the configured contrast and desaturation, then
    fade it back to its original grading over the configured real-time duration.
-3. Preserve a feathered full-color aura around the activating character so
-   that character, the Sacred Flame power-up, and TokenMagic fire remain vivid.
-4. Play `AetherUp3.ogg`.
-5. Wait 700 ms.
-6. Play the yellow JB2A Sacred Flame effect for 5.4 seconds at 2× scale.
-7. Apply the animated white TokenMagic fire filter.
-8. Swap the token to the campaign-specific transformed image.
+8. Preserve only the transformed token art in full color, using the image's
+   own transparent pixels. No surrounding battlefield aura is preserved.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.24
+
+- Moved the battlefield grayscale ripple until after the full-color Sacred
+  Flame power-up explosion and token transformation complete.
+- Removed the feathered color-preservation aura and its continuously redrawn
+  canvas, eliminating colored battlefield space and intermittent dark-circle
+  artifacts around the token.
+- Replaced the live backdrop-filter wave with a clipped grayscale snapshot for
+  a stable outward ripple.
+- During recovery, only the transformed token image is composited in color;
+  its own transparency determines the exact preserved area.
+- Clearing Soul Burn from Player Management now ends any active burn through
+  the normal resolution path first. Burnout, restoration, the end sound, chat
+  output, and configured Constitution check all resolve before the tertiary
+  resource is removed.
+- Saving an active character at 0 Soul Burn uses the same end-and-clear path.
+
 ## 1.0.23
 
 - Standardized the product name as **AetherGlow** in all player-facing

@@ -160,25 +160,19 @@ class SoulBurnPlayerManager extends FormApplication {
       const actor = game.actors.get(event.currentTarget.dataset.clearPlayer);
       if (!actor) return;
       const current = state(actor);
-      if (current.active) {
-        return ui.notifications.warn(`End ${actor.name}'s Soul Burn before clearing their resource.`);
-      }
       const confirmed = await Dialog.confirm({
         title: `Clear ${actor.name}'s Soul Burn Data`,
         content: `<p>This resets <strong>${esc(actor.name)}</strong>'s AGT and removes Soul Burn from the tertiary resource slot.</p>
+          ${current.active
+            ? `<p><strong>${esc(actor.name)} is actively Soul Burning.</strong> The burn will end normally first, including Burnout resolution and configured end checks.</p>`
+            : ""}
           <p>Lifetime Uses and the configured transformation image are preserved.</p>`
       });
       if (!confirmed) return;
-      await actor.update({
-        "system.resources.tertiary.label": "",
-        "system.resources.tertiary.value": null,
-        "system.resources.tertiary.max": null
-      });
-      await saveMetadataOnly(actor, {
-        ...current,
-        burn: 0,
+      await clearSoulBurnFromSheet(actor, {
         tolerance: 0,
-        resourceCleared: true
+        uses: current.uses,
+        reason: "Soul Burn reset from Player Management"
       });
       ui.notifications.info(`${actor.name}'s AGT and Soul Burn resource were cleared.`);
       this.render();
@@ -201,7 +195,6 @@ class SoulBurnPlayerManager extends FormApplication {
   }
 
   async _updateObject(_event, formData) {
-    const activeActorsKept = [];
     for (const actor of game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)) {
       const current = state(actor);
       const prefix = `actors.${actor.id}.`;
@@ -217,26 +210,11 @@ class SoulBurnPlayerManager extends FormApplication {
         tolerance: Math.min(19, Math.max(0, Number(formData[`${prefix}tolerance`] ?? current.tolerance)))
       };
 
-      if (hasBurnInput && submittedBurn === 0 && !current.active) {
-        await actor.update({
-          "system.resources.tertiary.label": "",
-          "system.resources.tertiary.value": null,
-          "system.resources.tertiary.max": null
-        });
-        await saveMetadataOnly(actor, {
-          ...next,
-          burn: 0,
-          resourceCleared: true
-        });
-        continue;
-      }
-
-      if (hasBurnInput && submittedBurn === 0 && current.active) {
-        activeActorsKept.push(actor.name);
-        await saveState(actor, {
-          ...next,
-          burn: current.burn,
-          resourceCleared: false
+      if (hasBurnInput && submittedBurn === 0) {
+        await clearSoulBurnFromSheet(actor, {
+          tolerance: next.tolerance,
+          uses: next.uses,
+          reason: "Soul Burn reset from Player Management"
         });
         continue;
       }
@@ -246,12 +224,6 @@ class SoulBurnPlayerManager extends FormApplication {
       } else {
         await saveMetadataOnly(actor, next);
       }
-    }
-
-    if (activeActorsKept.length) {
-      ui.notifications.warn(
-        `Soul Burn was not removed from active character${activeActorsKept.length === 1 ? "" : "s"}: ${activeActorsKept.join(", ")}. End the active burn first.`
-      );
     }
     ui.notifications.info("Soul Burn player data saved.");
   }
@@ -912,6 +884,39 @@ async function saveManagedState(actor, next) {
   return saveMetadataOnly(actor, next);
 }
 
+async function clearSoulBurnFromSheet(
+  actor,
+  {
+    tolerance = state(actor).tolerance,
+    uses = state(actor).uses,
+    reason = "Soul Burn reset"
+  } = {}
+) {
+  if (state(actor).active) await endBurn(actor, reason);
+  const ended = state(actor);
+  await actor.update({
+    "system.resources.tertiary.label": "",
+    "system.resources.tertiary.value": null,
+    "system.resources.tertiary.max": null
+  });
+  await saveMetadataOnly(actor, {
+    ...ended,
+    burn: 0,
+    uses: Math.max(0, Number(uses) || 0),
+    tolerance: Math.min(19, Math.max(0, Number(tolerance) || 0)),
+    active: false,
+    burnout: false,
+    resourceCleared: true,
+    combatId: null,
+    startedRound: null,
+    endsRound: null,
+    durationRounds: 0,
+    baseMovement: {},
+    originalImages: {}
+  });
+  renderActorSheetSoon(actor);
+}
+
 async function consumeHitDie(actor, promptText = "Choose a Hit Die") {
   const available = classData(actor).filter(c => c.remaining > 0);
   if (!available.length) throw new Error(`${actor.name} has no Hit Dice remaining.`);
@@ -1093,10 +1098,11 @@ function stopBattlefieldRipple() {
   if (!active) return;
   activeBattlefieldRipple = null;
   active.animation?.cancel();
-  if (active.colorFrame) cancelAnimationFrame(active.colorFrame);
+  active.ringAnimation?.cancel();
+  if (active.tokenFrame) cancelAnimationFrame(active.tokenFrame);
   if (active.timer) clearTimeout(active.timer);
   active.overlay?.remove();
-  active.colorCanvas?.remove();
+  active.tokenMedia?.remove();
   if (active.view) {
     active.view.style.filter = active.baseFilter;
     active.view.style.transition = active.baseTransition;
@@ -1120,88 +1126,70 @@ function battlefieldScreenPoint(worldPoint, view) {
   }
 }
 
-function startBattlefieldColorPreserver(effect) {
+function startBattlefieldTokenPreserver(effect) {
   const { view } = effect;
-  const colorCanvas = document.createElement("canvas");
-  colorCanvas.className = "soul-burn-battlefield-color-preserver";
-  effect.colorCanvas = colorCanvas;
-  document.body.append(colorCanvas);
+  let tokenMedia = null;
+  let mediaSource = "";
 
-  let lastDraw = 0;
-  const draw = time => {
+  const draw = () => {
     if (activeBattlefieldRipple !== effect) return;
-    effect.colorFrame = requestAnimationFrame(draw);
-    if (time - lastDraw < 33) return;
-    lastDraw = time;
+    effect.tokenFrame = requestAnimationFrame(draw);
 
     const rect = view.getBoundingClientRect();
-    const sourceWidth = Number(view.width ?? canvas.app.renderer.width);
-    const sourceHeight = Number(view.height ?? canvas.app.renderer.height);
-    if (!rect.width || !rect.height || !sourceWidth || !sourceHeight) return;
-    if (colorCanvas.width !== sourceWidth) colorCanvas.width = sourceWidth;
-    if (colorCanvas.height !== sourceHeight) colorCanvas.height = sourceHeight;
-    Object.assign(colorCanvas.style, {
-      left: `${rect.left}px`,
-      top: `${rect.top}px`,
-      width: `${rect.width}px`,
-      height: `${rect.height}px`
-    });
-
     const token = canvas.tokens?.get(effect.tokenId)
       ?? canvas.tokens?.placeables?.find(placeable => placeable.actor?.id === effect.actorId);
-    const worldCenter = token?.center ?? effect.origin;
-    const point = battlefieldScreenPoint(worldCenter, view);
-    if (!point) return;
+    if (!token || !token.visible || !rect.width || !rect.height) {
+      if (tokenMedia) tokenMedia.style.display = "none";
+      return;
+    }
+
+    const source = String(token.document.texture?.src ?? token.document.img ?? "").trim();
+    if (!source) return;
+    if (!tokenMedia || mediaSource !== source) {
+      tokenMedia?.remove();
+      const video = /\.(?:webm|mp4|m4v|ogv)(?:[?#].*)?$/i.test(source);
+      tokenMedia = document.createElement(video ? "video" : "img");
+      tokenMedia.className = "soul-burn-battlefield-token-preserver";
+      tokenMedia.src = source;
+      if (video) {
+        tokenMedia.autoplay = true;
+        tokenMedia.loop = true;
+        tokenMedia.muted = true;
+        tokenMedia.playsInline = true;
+        void tokenMedia.play().catch(() => {});
+      }
+      document.body.append(tokenMedia);
+      effect.tokenMedia = tokenMedia;
+      mediaSource = source;
+    }
+
+    const point = battlefieldScreenPoint(token.center ?? effect.origin, view);
+    if (!point) {
+      tokenMedia.style.display = "none";
+      return;
+    }
 
     const rendererWidth = Number(canvas.app.renderer.screen?.width ?? rect.width);
-    const zoom = Math.abs(Number(canvas.stage.scale?.x ?? 1));
-    const gridSize = Number(canvas.grid?.size ?? canvas.scene?.grid?.size ?? 100);
-    const radiusCss = Math.max(
-      90,
-      gridSize * zoom * (rect.width / rendererWidth) * 2.65
-    );
-    const scaleX = sourceWidth / rect.width;
-    const scaleY = sourceHeight / rect.height;
-    const centerX = point.x * scaleX;
-    const centerY = point.y * scaleY;
-    const radius = radiusCss * Math.max(scaleX, scaleY);
-    const left = Math.max(0, centerX - radius);
-    const top = Math.max(0, centerY - radius);
-    const right = Math.min(sourceWidth, centerX + radius);
-    const bottom = Math.min(sourceHeight, centerY + radius);
-    const width = Math.max(0, right - left);
-    const height = Math.max(0, bottom - top);
-
-    const context = colorCanvas.getContext("2d");
-    if (effect.colorBounds) {
-      const previous = effect.colorBounds;
-      context.clearRect(previous.left, previous.top, previous.width, previous.height);
-    }
-    effect.colorBounds = { left, top, width, height };
+    const rendererHeight = Number(canvas.app.renderer.screen?.height ?? rect.height);
+    const zoomX = Math.abs(Number(canvas.stage.scale?.x ?? 1));
+    const zoomY = Math.abs(Number(canvas.stage.scale?.y ?? zoomX));
+    const textureScaleX = Math.abs(Number(token.document.texture?.scaleX ?? 1));
+    const textureScaleY = Math.abs(Number(token.document.texture?.scaleY ?? 1));
+    const width = Number(token.w ?? 0) * zoomX * (rect.width / rendererWidth) * textureScaleX;
+    const height = Number(token.h ?? 0) * zoomY * (rect.height / rendererHeight) * textureScaleY;
     if (!width || !height) return;
-    context.save();
-    context.beginPath();
-    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    context.clip();
-    context.drawImage(view, left, top, width, height, left, top, width, height);
-    context.globalCompositeOperation = "destination-in";
-    const feather = context.createRadialGradient(
-      centerX,
-      centerY,
-      radius * 0.5,
-      centerX,
-      centerY,
-      radius
-    );
-    feather.addColorStop(0, "rgba(255,255,255,1)");
-    feather.addColorStop(0.62, "rgba(255,255,255,1)");
-    feather.addColorStop(0.82, "rgba(255,255,255,0.82)");
-    feather.addColorStop(1, "rgba(255,255,255,0)");
-    context.fillStyle = feather;
-    context.fillRect(left, top, width, height);
-    context.restore();
+
+    Object.assign(tokenMedia.style, {
+      display: "block",
+      left: `${rect.left + point.x - width / 2}px`,
+      top: `${rect.top + point.y - height / 2}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+      opacity: String(token.document.alpha ?? 1),
+      transform: `rotate(${Number(token.document.rotation ?? 0)}deg)`
+    });
   };
-  effect.colorFrame = requestAnimationFrame(draw);
+  effect.tokenFrame = requestAnimationFrame(draw);
 }
 
 async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
@@ -1234,17 +1222,33 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   );
   const diameter = Math.max(1, distance * 2.08);
   const contrast = 100 + settings.contrast;
-  const circle = document.createElement("div");
-  circle.className = "soul-burn-battlefield-wave";
-  Object.assign(circle.style, {
+  const grayCanvas = document.createElement("canvas");
+  grayCanvas.className = "soul-burn-battlefield-gray";
+  grayCanvas.width = Number(view.width ?? canvas.app.renderer.width);
+  grayCanvas.height = Number(view.height ?? canvas.app.renderer.height);
+  grayCanvas.getContext("2d").drawImage(
+    view,
+    0,
+    0,
+    grayCanvas.width,
+    grayCanvas.height
+  );
+  Object.assign(grayCanvas.style, {
+    width: "100%",
+    height: "100%",
+    filter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`
+  });
+  overlay.append(grayCanvas);
+
+  const ring = document.createElement("div");
+  ring.className = "soul-burn-battlefield-wave";
+  Object.assign(ring.style, {
     width: `${diameter}px`,
     height: `${diameter}px`,
     left: `${point.x - diameter / 2}px`,
-    top: `${point.y - diameter / 2}px`,
-    backdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`,
-    webkitBackdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`
+    top: `${point.y - diameter / 2}px`
   });
-  overlay.append(circle);
+  overlay.append(ring);
   document.body.append(overlay);
 
   const baseFilter = view.style.filter;
@@ -1254,7 +1258,18 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
     `contrast(${contrast}%)`,
     `grayscale(${settings.desaturation}%)`
   ].filter(Boolean).join(" ");
-  const animation = circle.animate(
+  const animation = grayCanvas.animate(
+    [
+      { clipPath: `circle(0px at ${point.x}px ${point.y}px)` },
+      { clipPath: `circle(${distance * 1.04}px at ${point.x}px ${point.y}px)` }
+    ],
+    {
+      duration: RIPPLE_EXPANSION_MS,
+      easing: "cubic-bezier(0.12, 0.72, 0.22, 1)",
+      fill: "forwards"
+    }
+  );
+  const ringAnimation = ring.animate(
     [
       { transform: "scale(0.001)", opacity: 0.25 },
       { transform: "scale(1)", opacity: 1 }
@@ -1268,6 +1283,7 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
 
   const effect = {
     animation,
+    ringAnimation,
     overlay,
     view,
     baseFilter,
@@ -1275,16 +1291,15 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
     actorId,
     tokenId,
     origin: { x, y },
-    colorCanvas: null,
-    colorFrame: null,
-    colorBounds: null,
+    tokenMedia: null,
+    tokenFrame: null,
     timer: null
   };
   activeBattlefieldRipple = effect;
-  startBattlefieldColorPreserver(effect);
+  startBattlefieldTokenPreserver(effect);
 
   try {
-    await animation.finished;
+    await Promise.all([animation.finished, ringAnimation.finished]);
   } catch (_error) {
     return;
   }
@@ -1309,8 +1324,8 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   effect.timer = setTimeout(() => {
     if (activeBattlefieldRipple !== effect) return;
     activeBattlefieldRipple = null;
-    if (effect.colorFrame) cancelAnimationFrame(effect.colorFrame);
-    effect.colorCanvas?.remove();
+    if (effect.tokenFrame) cancelAnimationFrame(effect.tokenFrame);
+    effect.tokenMedia?.remove();
     view.style.filter = baseFilter;
     view.style.transition = baseTransition;
   }, settings.recoverySeconds * 1000 + 150);
@@ -1345,8 +1360,6 @@ async function playAnimation(token, nextState) {
     return;
   }
 
-  broadcastBattlefieldRipple(token);
-
   const powerUpSound = soundPath("powerUpSound");
   if (powerUpSound) {
     try {
@@ -1359,13 +1372,17 @@ async function playAnimation(token, nextState) {
   if (globalThis.Sequence) {
     try {
       await wait(700);
-      await new Sequence()
+      const animationDuration = 5400;
+      const sequence = new Sequence()
         .effect()
         .file(SB.sacredFlame)
         .atLocation(token)
         .scale(2)
-        .duration(5400)
-        .play();
+        .duration(animationDuration);
+      // Sequencer versions differ on whether play() resolves at launch or at
+      // completion. Waiting on both guarantees that the grayscale ripple never
+      // starts before the configured full-color animation has finished.
+      await Promise.all([sequence.play(), wait(animationDuration)]);
       await wait(1000);
     } catch (error) {
       console.warn("Soul Burn | Sequencer/JB2A animation skipped.", error);
@@ -1413,6 +1430,11 @@ async function playAnimation(token, nextState) {
   } catch (error) {
     console.warn("Soul Burn | Transformed token image unavailable.", error);
   }
+
+  // Let the power-up explosion complete in full color. The grayscale wave
+  // begins only after the transformed token is ready, and preserves that
+  // token's own transparent pixels rather than a colored area around it.
+  broadcastBattlefieldRipple(token);
 }
 
 function isManagedSoulBurnEffect(effect) {
@@ -2260,7 +2282,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.23"
+    version: "1.0.24"
   });
 
   await cleanLegacyCompendiumIndex();
