@@ -1,129 +1,130 @@
 <form class="soul-burn-sound-form">
-  <p class="notes">
-    Choose audio from Foundry's file browser. Preview plays only for you;
-    in-game sounds are shared with connected players.
-  </p>
+  <nav class="soul-burn-settings-tabs tabs" data-group="primary">
+    <a class="item" data-tab="sounds"><i class="fas fa-volume-high"></i> Sounds</a>
+    <a class="item" data-tab="visuals"><i class="fas fa-wand-magic-sparkles"></i> Visuals</a>
+    <a class="item" data-tab="mechanics"><i class="fas fa-gears"></i> Mechanics</a>
+  </nav>
 
-  <div class="form-group">
-    <label>Soul Burn Power-Up</label>
-    <div class="form-fields">
-      <input type="text" name="powerUpSound" value="{{powerUpSound}}">
-      <button type="button" data-browse-target="powerUpSound" title="Browse">
-        <i class="fas fa-folder-open"></i>
-      </button>
-      <button type="button" data-preview-target="powerUpSound" title="Preview">
-        <i class="fas fa-play"></i>
-      </button>
-      <button type="button" data-default-target="powerUpSound" title="Restore bundled sound">
-        <i class="fas fa-rotate-left"></i>
-      </button>
+  <section class="soul-burn-settings-body">
+    <div class="tab" data-group="primary" data-tab="sounds">
+      <p class="notes">
+        Choose audio from Foundry's file browser. Preview plays only for you;
+        in-game sounds are shared with connected players.
+      </p>
+
+      <div class="form-group">
+        <label>Soul Burn Power-Up</label>
+        <div class="form-fields">
+          <input type="text" name="powerUpSound" value="{{powerUpSound}}">
+          <button type="button" data-browse-target="powerUpSound" title="Browse"><i class="fas fa-folder-open"></i></button>
+          <button type="button" data-preview-target="powerUpSound" title="Preview"><i class="fas fa-play"></i></button>
+          <button type="button" data-default-target="powerUpSound" title="Restore bundled sound"><i class="fas fa-rotate-left"></i></button>
+        </div>
+        <p class="hint">Played when Soul Burn activates.</p>
+      </div>
+
+      <div class="form-group">
+        <label>Soul Burn Ending / Transform Back</label>
+        <div class="form-fields">
+          <input type="text" name="endSound" value="{{endSound}}" placeholder="Choose an audio file">
+          <button type="button" data-browse-target="endSound" title="Browse"><i class="fas fa-folder-open"></i></button>
+          <button type="button" data-preview-target="endSound" title="Preview"><i class="fas fa-play"></i></button>
+          <button type="button" data-default-target="endSound" title="Restore bundled sound"><i class="fas fa-rotate-left"></i></button>
+        </div>
+        <p class="hint">Played when the duration expires or Soul Burn ends early. Bundled default: RagePowerDown.ogg.</p>
+      </div>
+
+      <div class="form-group">
+        <label>AetherGlow Drinking</label>
+        <div class="form-fields">
+          <input type="text" name="aetherglowSound" value="{{aetherglowSound}}">
+          <button type="button" data-browse-target="aetherglowSound" title="Browse"><i class="fas fa-folder-open"></i></button>
+          <button type="button" data-preview-target="aetherglowSound" title="Preview"><i class="fas fa-play"></i></button>
+          <button type="button" data-default-target="aetherglowSound" title="Restore bundled sound"><i class="fas fa-rotate-left"></i></button>
+        </div>
+        <p class="hint">Played when AetherGlow is consumed.</p>
+      </div>
     </div>
-    <p class="hint">Played when Soul Burn activates.</p>
-  </div>
 
-  <div class="form-group">
-    <label>Soul Burn Ending / Transform Back</label>
-    <div class="form-fields">
-      <input type="text" name="endSound" value="{{endSound}}" placeholder="Choose an audio file">
-      <button type="button" data-browse-target="endSound" title="Browse">
-        <i class="fas fa-folder-open"></i>
-      </button>
-      <button type="button" data-preview-target="endSound" title="Preview">
-        <i class="fas fa-play"></i>
-      </button>
-      <button type="button" data-default-target="endSound" title="Restore bundled sound">
-        <i class="fas fa-rotate-left"></i>
-      </button>
+    <div class="tab" data-group="primary" data-tab="visuals">
+      <h2>Battlefield Ripple</h2>
+      <p class="notes">
+        After the original full-color animated power-up completes, a grayscale
+        refractive wave expands from the transformed character. It is
+        synchronized for every connected player viewing the scene.
+      </p>
+
+      <div class="form-group">
+        <label>Contrast Increase</label>
+        <div class="form-fields">
+          <input type="number" name="rippleContrast" value="{{rippleContrast}}" min="0" max="200" step="1">
+          <span class="units">%</span>
+        </div>
+        <p class="hint">Additional contrast after the ripple passes. Default: 10%.</p>
+      </div>
+
+      <div class="form-group">
+        <label>Desaturation</label>
+        <div class="form-fields">
+          <input type="number" name="rippleDesaturation" value="{{rippleDesaturation}}" min="0" max="100" step="1">
+          <span class="units">%</span>
+        </div>
+        <p class="hint">Amount of battlefield color removed. 100% is fully desaturated.</p>
+      </div>
+
+      <div class="form-group">
+        <label>Return to Normal</label>
+        <div class="form-fields">
+          <input type="number" name="rippleRecoverySeconds" value="{{rippleRecoverySeconds}}" min="1" max="600" step="1">
+          <span class="units">seconds</span>
+        </div>
+        <p class="hint">Real time taken for contrast and color to return to normal. Default: 60 seconds.</p>
+      </div>
     </div>
-    <p class="hint">Played when the duration expires or Soul Burn ends early. Bundled default: RagePowerDown.ogg.</p>
-  </div>
 
-  <hr>
+    <div class="tab" data-group="primary" data-tab="mechanics">
+      <div class="form-group">
+        <label>High Stakes Mode</label>
+        <div class="form-fields">
+          <input type="checkbox" name="highStakesMode" {{checked highStakesMode}}>
+        </div>
+        <p class="hint">
+          Multiplies the activation roll by lifetime Uses: first use 1 die,
+          second use 2 dice, third use 3 dice, and so on. The total adds Soul
+          Burn; the first die determines the duration.
+        </p>
+      </div>
 
-  <h2>Battlefield Ripple</h2>
-  <p class="notes">
-    When Soul Burn activates, a refractive wave expands from the character and
-    leaves the battlefield color-graded. The effect is synchronized for every
-    connected player viewing the scene.
-  </p>
+      <div class="form-group">
+        <label>Constitution Check on End</label>
+        <div class="form-fields">
+          <input type="checkbox" name="requireEndConSave" {{checked requireEndConSave}}>
+        </div>
+        <p class="hint">Require and report a Constitution ability check whenever Soul Burn ends.</p>
+      </div>
 
-  <div class="form-group">
-    <label>Contrast Increase</label>
-    <div class="form-fields">
-      <input type="number" name="rippleContrast" value="{{rippleContrast}}" min="0" max="200" step="1">
-      <span class="units">%</span>
+      <div class="form-group">
+        <label>Apply Exhaustion on Failed Check</label>
+        <div class="form-fields">
+          <input type="checkbox" name="applyExhaustionOnFailedConCheck" {{checked applyExhaustionOnFailedConCheck}}>
+        </div>
+        <p class="hint">
+          Adds one exhaustion level after a failed check. Enabling this option
+          also enables Constitution Check on End.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label>Constitution Check DC</label>
+        <div class="form-fields">
+          <input type="number" name="endConSaveDC" value="{{endConSaveDC}}" min="1" max="30" step="1">
+        </div>
+        <p class="hint">The target number for the end-of-burn check.</p>
+      </div>
     </div>
-    <p class="hint">Additional contrast after the ripple passes. Default: 10%.</p>
-  </div>
-
-  <div class="form-group">
-    <label>Desaturation</label>
-    <div class="form-fields">
-      <input type="number" name="rippleDesaturation" value="{{rippleDesaturation}}" min="0" max="100" step="1">
-      <span class="units">%</span>
-    </div>
-    <p class="hint">Amount of battlefield color removed. 100% is fully desaturated.</p>
-  </div>
-
-  <div class="form-group">
-    <label>Return to Normal</label>
-    <div class="form-fields">
-      <input type="number" name="rippleRecoverySeconds" value="{{rippleRecoverySeconds}}" min="1" max="600" step="1">
-      <span class="units">seconds</span>
-    </div>
-    <p class="hint">Real time taken for contrast and color to return to normal. Default: 60 seconds.</p>
-  </div>
-
-  <hr>
-
-  <div class="form-group">
-    <label>High Stakes Mode</label>
-    <div class="form-fields">
-      <input type="checkbox" name="highStakesMode" {{checked highStakesMode}}>
-    </div>
-    <p class="hint">
-      Multiplies the activation roll by lifetime Uses: first use 1 die, second
-      use 2 dice, third use 3 dice, and so on. The total adds Soul Burn; the
-      first die determines the duration.
-    </p>
-  </div>
-
-  <div class="form-group">
-    <label>Constitution Check on End</label>
-    <div class="form-fields">
-      <input type="checkbox" name="requireEndConSave" {{checked requireEndConSave}}>
-    </div>
-    <p class="hint">Require and report a Constitution ability check whenever Soul Burn ends.</p>
-  </div>
-
-  <div class="form-group">
-    <label>Constitution Check DC</label>
-    <div class="form-fields">
-      <input type="number" name="endConSaveDC" value="{{endConSaveDC}}" min="1" max="30" step="1">
-    </div>
-    <p class="hint">The GM resolves the consequences of success or failure.</p>
-  </div>
-
-  <div class="form-group">
-    <label>AetherGlow Drinking</label>
-    <div class="form-fields">
-      <input type="text" name="aetherglowSound" value="{{aetherglowSound}}">
-      <button type="button" data-browse-target="aetherglowSound" title="Browse">
-        <i class="fas fa-folder-open"></i>
-      </button>
-      <button type="button" data-preview-target="aetherglowSound" title="Preview">
-        <i class="fas fa-play"></i>
-      </button>
-      <button type="button" data-default-target="aetherglowSound" title="Restore bundled sound">
-        <i class="fas fa-rotate-left"></i>
-      </button>
-    </div>
-    <p class="hint">Played when AetherGlow is consumed.</p>
-  </div>
+  </section>
 
   <footer class="sheet-footer flexrow">
-    <button type="submit" name="submit">
-      <i class="fas fa-save"></i> Save
-    </button>
+    <button type="submit" name="submit"><i class="fas fa-save"></i> Save</button>
   </footer>
 </form>

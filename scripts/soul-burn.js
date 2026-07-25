@@ -33,7 +33,12 @@ class SoulBurnSoundSettings extends FormApplication {
       title: "Soul Burn Settings",
       template: "modules/soul-burn/templates/sound-settings.hbs",
       width: 620,
-      closeOnSubmit: true
+      closeOnSubmit: true,
+      tabs: [{
+        navSelector: ".soul-burn-settings-tabs",
+        contentSelector: ".soul-burn-settings-body",
+        initial: "sounds"
+      }]
     });
   }
 
@@ -47,6 +52,10 @@ class SoulBurnSoundSettings extends FormApplication {
       rippleRecoverySeconds: game.settings.get("soul-burn", "rippleRecoverySeconds"),
       highStakesMode: game.settings.get("soul-burn", "highStakesMode"),
       requireEndConSave: game.settings.get("soul-burn", "requireEndConSave"),
+      applyExhaustionOnFailedConCheck: game.settings.get(
+        "soul-burn",
+        "applyExhaustionOnFailedConCheck"
+      ),
       endConSaveDC: game.settings.get("soul-burn", "endConSaveDC"),
       defaultPowerUpSound: SB.defaultPowerUpSound,
       defaultAetherglowSound: SB.defaultAetherglowSound,
@@ -83,6 +92,24 @@ class SoulBurnSoundSettings extends FormApplication {
       const value = defaults[target] ?? "";
       html.find(`[name="${target}"]`).val(value).trigger("change");
     });
+
+    const requireCheck = html.find('[name="requireEndConSave"]');
+    const applyExhaustion = html.find('[name="applyExhaustionOnFailedConCheck"]');
+    const checkDC = html.find('[name="endConSaveDC"]');
+    const syncConstitutionSettings = () => {
+      const enabled = requireCheck.prop("checked");
+      checkDC.prop("disabled", !enabled);
+      checkDC.closest(".form-group").toggleClass("soul-burn-setting-disabled", !enabled);
+    };
+    applyExhaustion.on("change", () => {
+      if (applyExhaustion.prop("checked")) requireCheck.prop("checked", true);
+      syncConstitutionSettings();
+    });
+    requireCheck.on("change", () => {
+      if (!requireCheck.prop("checked")) applyExhaustion.prop("checked", false);
+      syncConstitutionSettings();
+    });
+    syncConstitutionSettings();
   }
 
   async _updateObject(_event, formData) {
@@ -104,8 +131,15 @@ class SoulBurnSoundSettings extends FormApplication {
       "rippleRecoverySeconds",
       Math.min(600, Math.max(1, Number(formData.rippleRecoverySeconds) || 60))
     );
+    const applyExhaustion = Boolean(formData.applyExhaustionOnFailedConCheck);
+    const requireEndConSave = Boolean(formData.requireEndConSave) || applyExhaustion;
     await game.settings.set("soul-burn", "highStakesMode", Boolean(formData.highStakesMode));
-    await game.settings.set("soul-burn", "requireEndConSave", Boolean(formData.requireEndConSave));
+    await game.settings.set("soul-burn", "requireEndConSave", requireEndConSave);
+    await game.settings.set(
+      "soul-burn",
+      "applyExhaustionOnFailedConCheck",
+      applyExhaustion
+    );
     await game.settings.set(
       "soul-burn",
       "endConSaveDC",
@@ -281,6 +315,14 @@ Hooks.once("init", () => {
   game.settings.register("soul-burn", "requireEndConSave", {
     name: "Require Constitution Check When Soul Burn Ends",
     hint: "Roll a Constitution ability check and report the result when any Soul Burn period ends.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+  game.settings.register("soul-burn", "applyExhaustionOnFailedConCheck", {
+    name: "Apply Exhaustion on Failed Constitution Check",
+    hint: "Add one exhaustion level when the configured end-of-burn Constitution check fails.",
     scope: "world",
     config: false,
     type: Boolean,
@@ -1704,10 +1746,29 @@ async function endBurn(actor, reason = "Soul Burn ends") {
     const modifier = Number(actor.system.abilities?.con?.mod ?? 0);
     constitutionRoll = await makeRoll("1d20 + @modifier", { modifier });
     const passed = constitutionRoll.total >= dc;
+    let exhaustionSummary = "";
+    if (
+      !passed
+      && game.settings.get("soul-burn", "applyExhaustionOnFailedConCheck")
+    ) {
+      const previousExhaustion = Math.min(
+        6,
+        Math.max(0, Number(actor.system.attributes?.exhaustion) || 0)
+      );
+      const nextExhaustion = Math.min(6, previousExhaustion + 1);
+      if (nextExhaustion !== previousExhaustion) {
+        await actor.update({ "system.attributes.exhaustion": nextExhaustion });
+      }
+      exhaustionSummary = `
+        <p><strong>Exhaustion Applied:</strong> Level ${previousExhaustion} → ${nextExhaustion}${nextExhaustion >= 6 ? " (maximum)" : ""}</p>`;
+    }
     constitutionSummary = `
       <p><strong>Constitution Check:</strong> ${constitutionRoll.total} vs DC ${dc}
       — <strong>${passed ? "Success" : "Failure"}</strong></p>
-      <p><em>The GM resolves the consequences of this check.</em></p>`;
+      ${exhaustionSummary}
+      ${exhaustionSummary
+        ? ""
+        : "<p><em>The GM resolves the consequences of this check.</em></p>"}`;
   }
 
   const durationSummary = current.combatId && current.startedRound !== null

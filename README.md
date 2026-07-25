@@ -126,7 +126,12 @@ Three audio effects are bundled with the module:
 The GM can change any sound under **Configure Settings → Module Settings →
 Soul Burn Settings**. The settings panel includes Browse, Preview, and Restore
 Bundled Sound controls. It also configures the synchronized battlefield
-ripple's contrast increase, desaturation, and real-time recovery duration.
+ripple's contrast increase, desaturation, and real-time recovery duration. The
+panel is organized into **Sounds**, **Visuals**, and **Mechanics** tabs.
+
+Mechanics can require a Constitution check when Soul Burn ends. The optional
+**Apply Exhaustion on Failed Check** setting automatically enables that check
+and adds one dnd5e exhaustion level after a failure, to a maximum of 6.
 
 The mechanics work without animation modules. These optional modules preserve
 the supplied transformation:
@@ -260,6 +265,7 @@ The activation card logs the starting and expiry rounds. Automatic expiry:
 - Posts a transformation-ending chat card.
 - Resolves pending Burnout messaging.
 - Optionally rolls a Constitution ability check against the GM-configured DC.
+- Optionally applies one exhaustion level when that check fails.
 
 Configure the ending sound and optional Constitution check under **Configure
 Settings → Module Settings → Soul Burn Settings**. The ending-sound field uses

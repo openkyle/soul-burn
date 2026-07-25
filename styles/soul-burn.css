@@ -97,6 +97,37 @@
   flex: 1;
 }
 
+.soul-burn-settings-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 0.75rem;
+  border-bottom: 1px solid var(--color-border-light-primary);
+}
+
+.soul-burn-settings-tabs .item {
+  flex: 1;
+  padding: 0.55rem 0.35rem;
+  text-align: center;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.soul-burn-settings-tabs .item.active {
+  color: #3f2600;
+  font-weight: 700;
+  background: rgba(225, 169, 56, 0.24);
+  border-color: #9a6b1f;
+}
+
+.soul-burn-settings-body > .tab {
+  min-height: 285px;
+}
+
+.soul-burn-setting-disabled {
+  opacity: 0.52;
+}
+
 .soul-burn-sound-form .form-fields button {
   flex: 0 0 36px;
   height: 32px;

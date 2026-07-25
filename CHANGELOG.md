@@ -16,6 +16,11 @@
   output, and configured Constitution check all resolve before the tertiary
   resource is removed.
 - Saving an active character at 0 Soul Burn uses the same end-and-clear path.
+- Reorganized GM configuration into **Sounds**, **Visuals**, and **Mechanics**
+  tabs, with all three audio controls together under Sounds.
+- Added **Apply Exhaustion on Failed Check**. Enabling it also enables the
+  Constitution end check; a failure adds one dnd5e exhaustion level, capped at
+  level 6, and reports the change on the ending chat card.
 
 ## 1.0.23
 
