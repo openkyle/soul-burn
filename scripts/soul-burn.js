@@ -1872,7 +1872,7 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
     "Give Aetherglow",
     `<p>Who receives this Aetherglow charge?</p>
      <div class="form-group"><label>Recipient</label><select name="targetActor">${groups}</select></div>
-     <p class="notes">Rolls 1d20 when Give &amp; Roll is clicked. Soul Burned recipients apply their own AGT and decrease Soul Burn; other recipients heal from the roll. Exposure increases Tolerance by 1.</p>`,
+     <p class="notes">AetherGlow always restores HP. If the recipient has Soul Burn, it also reduces Soul Burn. Both effects are reduced by AG Tolerance, and each exposure increases tolerance by 1 up to a maximum of 19.</p>`,
     {
       give: {
         icon: '<i class="fas fa-flask"></i>',
@@ -2260,7 +2260,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.21"
+    version: "1.0.22"
   });
 
   await cleanLegacyCompendiumIndex();

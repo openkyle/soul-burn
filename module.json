@@ -2,7 +2,7 @@
   "id": "soul-burn",
   "title": "Soul Burn",
   "description": "A complete player and GM workflow for the Soul Burn homebrew system in Foundry VTT dnd5e.",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "compatibility": {
     "minimum": "11",
     "verified": "13"

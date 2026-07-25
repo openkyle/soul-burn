@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.22
+
+- Clarified the Give Aetherglow dialog: AetherGlow always restores HP, also
+  reduces Soul Burn when present, and AG Tolerance reduces both effects.
+
 ## 1.0.21
 
 - Fixed the root cause of the persistent chat-card-first flow: Actor state is
