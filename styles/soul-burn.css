@@ -244,7 +244,7 @@
 
 .soul-burn-inventory-heading {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) auto auto;
+  grid-template-columns: minmax(190px, 1fr) auto;
   min-height: 36px;
   align-items: center;
   gap: 0.65rem;
@@ -278,19 +278,6 @@
   font-size: 0.8rem;
   font-weight: 600;
   opacity: 0.8;
-}
-
-.soul-burn-inventory-heading [data-sb-exit] {
-  width: auto;
-  min-width: 128px;
-  height: 28px;
-  margin: 0;
-  padding: 0 0.6rem;
-  color: #fff3d5;
-  font-weight: 700;
-  line-height: 26px;
-  background: linear-gradient(#8c2d10, #5e1907);
-  border: 1px solid #b96724;
 }
 
 .soul-burn-inventory-list {

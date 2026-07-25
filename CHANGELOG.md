@@ -21,6 +21,20 @@
 - Added **Apply Exhaustion on Failed Check**. Enabling it also enables the
   Constitution end check; a failure adds one dnd5e exhaustion level, capped at
   level 6, and reports the change on the ending chat card.
+- Fixed the root cause of the missing Inventory section: the supplied Tidy fork
+  exports `TAB_ID_CHARACTER_INVENTORY`, while the old selector requested the
+  nonexistent `TAB_CHARACTER_INVENTORY` and therefore targeted an `undefined`
+  tab.
+- Replaced that registration with the fork's documented
+  `tidy5e-sheet.renderActorSheet` injection path, targeting the live Inventory
+  items container after its Svelte render.
+- The active Inventory section now contains four actual managed dnd5e Items:
+  AetherSurge, Channel Aether, Fate Shift, and Exit Soul Burn.
+- Exit Soul Burn is cloned from the permanent feature, uses the normal Item
+  workflow, and removes all four managed Items and the section after the normal
+  ending workflow. The permanent Features entry is never removed.
+- Added Item-card, native-use, and locked-details controls to every Soul Burn
+  Inventory row so rolls, charges, and resource consumption remain system-led.
 
 ## 1.0.23
 

@@ -21,8 +21,8 @@ While Soul Burn is active, the character receives:
 - Double movement.
 - One free Soul Burn action each turn.
 - Access to AetherSurge, Channel Aether, and Fate Shift.
-- A collapsible **Soul Burn** Item section above Weapons on Tidy5e's Inventory
-  tab while transformed.
+- A collapsible **Soul Burn** Item section containing the three attacks and an
+  Exit Soul Burn Item above Weapons on Tidy5e's Inventory tab while transformed.
 
 ### Maximum and Burnout
 
@@ -74,14 +74,19 @@ Channel-used flag and provides no reset control.
 
 When a character enters Soul Burn, the module copies AetherSurge, Channel
 Aether, and Fate Shift from **Soul Burn Features** onto that Actor as managed
-temporary Items. Tidy5e Sheet shows them as regular clickable Item rows in a
-collapsible **Soul Burn** section above Weapons on the Inventory tab, including
-live Channel Aether charges and a far-right **Exit Soul Burn** control.
+temporary Items. It also creates a managed **Exit Soul Burn** Item from the
+permanent Soul Burn feature. Tidy5e Sheet shows all four as regular usable rows
+in a collapsible **Soul Burn** section above Weapons on the Inventory tab.
 
-The managed copies are hidden from duplicate Actions and Features listings.
-When Soul Burn ends—manually, through Fate Shift, or through combat expiry—the
-module deletes only those managed copies and the Inventory section disappears.
-Existing permanent Items with the same names are never deleted.
+Each row can use the underlying dnd5e Item, post its Item card, and open its
+locked Item sheet for details. Native Item use handles attack rolls, Channel
+Aether charges, and other system consumption; module hooks handle AetherSurge's
+Hit Die and the Fate Shift/Exit ending workflows.
+
+The four managed copies are hidden from duplicate Actions and Features
+listings. When Soul Burn ends—through Exit Soul Burn, Fate Shift, or combat
+expiry—the module deletes only those managed copies and the Inventory section
+disappears. The permanent Soul Burn feature remains in Features.
 
 The owned **Soul Burn** feature is locked against player editing and deletion;
 GMs can still edit it. While active, its sheet name and chat-card control become

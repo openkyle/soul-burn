@@ -7,9 +7,6 @@
         Soul Burn ({{actions.length}})
       </span>
       <span class="soul-burn-inventory-rounds">{{roundsLabel}}</span>
-      <button type="button" data-sb-exit title="End Soul Burn early">
-        <i class="fas fa-stop"></i> Exit Soul Burn
-      </button>
     </summary>
 
     <div class="soul-burn-inventory-list">
@@ -27,11 +24,9 @@
             <button type="button" data-sb-item-use="{{id}}" title="Use {{name}}">
               <i class="fas fa-dice-d20"></i>
             </button>
-            {{#if @root.isGM}}
-              <button type="button" data-sb-item-edit="{{id}}" title="Open {{name}}">
-                <i class="fas fa-edit"></i>
-              </button>
-            {{/if}}
+            <button type="button" data-sb-item-view="{{id}}" title="View {{name}} details">
+              <i class="fas fa-circle-info"></i>
+            </button>
           </span>
         </div>
       {{else}}

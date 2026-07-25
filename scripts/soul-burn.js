@@ -12,7 +12,7 @@ const SB = {
   key: "soulBurn",
   effectName: "Soul Burn",
   pack: "soul-burn.soul-burn-features",
-  temporaryActions: ["surge", "channel", "fate"],
+  temporaryActions: ["surge", "channel", "fate", "exit"],
   transformedTokenRoot:
     "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/CharTokens/AstrumKnights",
   defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
@@ -702,6 +702,19 @@ function configureRegularSoulBurnItem(data, action, actor) {
       ...(data.system.uses ?? {}),
       prompt: true
     };
+  } else if (action === "exit") {
+    data.name = "Exit Soul Burn";
+    data.img = "modules/soul-burn/icons/soul-burn.png";
+    data.system.description ??= {};
+    data.system.description.value =
+      "<p>End your active Soul Burn. The normal ending workflow resolves immediately, including Burnout and configured end checks.</p>";
+    data.system.activation = { type: "bonus", cost: 1, condition: "" };
+    data.system.target = { value: null, width: null, units: "", type: "self" };
+    data.system.range = { value: null, long: null, units: "self" };
+    data.system.uses = { value: null, max: "", per: null, recovery: "" };
+    data.system.consume = { type: "", target: null, amount: null };
+    data.system.actionType = "other";
+    data.system.formula = "";
   }
   return data;
 }
@@ -761,7 +774,9 @@ async function ensureTemporarySoulBurnActions(actor) {
       sourceItems.map(item => [normalizedSoulBurnAction(item), item])
     );
     const creates = missing.map(action => {
-      const source = sourceByAction.get(action);
+      const source = action === "exit"
+        ? sourceByAction.get("activate") ?? soulBurnFeature(actor)
+        : sourceByAction.get(action);
       if (!source) throw new Error(`The ${action} action is missing from the Soul Burn compendium.`);
       const data = source.toObject();
       delete data._id;
@@ -2200,66 +2215,110 @@ async function removeLegacyTidySoulBurnTabSelection(actor) {
   );
 }
 
-Hooks.once("tidy5e-sheet.ready", api => {
-  const inventoryItemsSelector = api.getSheetPartSelector(
-    api.constants.SHEET_PARTS.ITEMS_CONTAINER
-  );
-  api.registerCharacterContent(
-    new api.models.HandlebarsContent({
-      path: "/modules/soul-burn/templates/soul-burn-inventory.hbs",
-      enabled: context =>
-        context.actor?.type === "character"
-        && state(context.actor).active,
-      injectParams: {
-        selector: `[data-tab-contents-for="${api.constants.TAB_CHARACTER_INVENTORY}"] ${inventoryItemsSelector}`,
-        position: "afterbegin"
-      },
-      getData: async data => soulBurnInventoryData(data.actor),
-      onRender: ({ app, element }) => {
-        const actor = app.actor;
-        const section = [...element.querySelectorAll(".soul-burn-inventory-section")]
-          .find(node => node.dataset.actorId === actor?.id);
-        if (!actor || !section) return;
+let tidySoulBurnApi = null;
+const tidySoulBurnRenderGeneration = new WeakMap();
 
-        section.querySelector("[data-sb-exit]")?.addEventListener("click", async event => {
-          event.preventDefault();
-          event.stopPropagation();
-          await endBurn(actor, "Soul Burn Ended Early");
-        });
-        for (const control of section.querySelectorAll("[data-sb-item-use]")) {
-          control.addEventListener("click", async event => {
-            event.preventDefault();
-            event.stopPropagation();
-            const item = actor.items.get(event.currentTarget.dataset.sbItemUse);
-            if (item) await item.use();
-          });
-        }
-        for (const control of section.querySelectorAll("[data-sb-item-card]")) {
-          control.addEventListener("click", async event => {
-            event.preventDefault();
-            event.stopPropagation();
-            const item = actor.items.get(event.currentTarget.dataset.sbItemCard);
-            if (item) await item.displayCard();
-          });
-        }
-        for (const control of section.querySelectorAll("[data-sb-item-edit]")) {
-          control.addEventListener("click", event => {
-            event.preventDefault();
-            event.stopPropagation();
-            actor.items.get(event.currentTarget.dataset.sbItemEdit)?.sheet.render(true);
-          });
-        }
-      }
-    }),
-    { layout: "all" }
-  );
+Hooks.once("tidy5e-sheet.ready", api => {
+  tidySoulBurnApi = api;
 });
+
+function bindTidySoulBurnInventory(section, actor) {
+  for (const control of section.querySelectorAll("[data-sb-item-use]")) {
+    control.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const item = actor.items.get(event.currentTarget.dataset.sbItemUse);
+      if (item) await item.use();
+    });
+  }
+  for (const control of section.querySelectorAll("[data-sb-item-card]")) {
+    control.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const item = actor.items.get(event.currentTarget.dataset.sbItemCard);
+      if (item) await item.displayCard();
+    });
+  }
+  for (const control of section.querySelectorAll("[data-sb-item-view]")) {
+    control.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      actor.items.get(event.currentTarget.dataset.sbItemView)?.sheet.render(true);
+    });
+  }
+}
+
+async function injectTidySoulBurnInventory(app, element) {
+  const actor = app?.actor;
+  const root = element?.nodeType === 1 ? element : element?.[0];
+  if (!actor || actor.type !== "character" || !root) return;
+
+  const generation = (tidySoulBurnRenderGeneration.get(root) ?? 0) + 1;
+  tidySoulBurnRenderGeneration.set(root, generation);
+  for (const previous of root.querySelectorAll(".soul-burn-inventory-section")) {
+    const wrapper = previous.closest("[data-tidy-render-scheme]");
+    (wrapper ?? previous).remove();
+  }
+  if (!state(actor).active) return;
+
+  if (temporarySoulBurnActions(actor).length < SB.temporaryActions.length) {
+    await ensureTemporarySoulBurnActions(actor);
+  }
+  if (
+    tidySoulBurnRenderGeneration.get(root) !== generation
+    || !state(actor).active
+  ) return;
+
+  const api = tidySoulBurnApi ?? game.modules.get("tidy5e-sheet")?.api;
+  const inventoryTabId = api?.constants?.TAB_ID_CHARACTER_INVENTORY
+    ?? api?.constants?.TAB_CHARACTER_INVENTORY
+    ?? "inventory";
+  const itemsSelector = api?.getSheetPartSelector && api?.constants?.SHEET_PARTS?.ITEMS_CONTAINER
+    ? api.getSheetPartSelector(api.constants.SHEET_PARTS.ITEMS_CONTAINER)
+    : '[data-tidy-sheet-part="items-container"]';
+  const inventoryTab = root.querySelector(`[data-tab-contents-for="${inventoryTabId}"]`);
+  let itemsContainer = inventoryTab?.querySelector(itemsSelector);
+  if (!itemsContainer) {
+    await wait(0);
+    itemsContainer = root
+      .querySelector(`[data-tab-contents-for="${inventoryTabId}"]`)
+      ?.querySelector(itemsSelector);
+  }
+  if (!itemsContainer || tidySoulBurnRenderGeneration.get(root) !== generation) {
+    console.warn("Soul Burn | Tidy Inventory items container was not available for injection.");
+    return;
+  }
+
+  const renderHandlebarsTemplate = globalThis.renderTemplate
+    ?? globalThis.foundry?.applications?.handlebars?.renderTemplate;
+  if (!renderHandlebarsTemplate) {
+    console.warn("Soul Burn | Foundry's Handlebars renderer is unavailable.");
+    return;
+  }
+  const rendered = await renderHandlebarsTemplate(
+    "modules/soul-burn/templates/soul-burn-inventory.hbs",
+    soulBurnInventoryData(actor)
+  );
+  if (
+    tidySoulBurnRenderGeneration.get(root) !== generation
+    || !state(actor).active
+  ) return;
+  const wrapped = api?.useHandlebarsRendering
+    ? api.useHandlebarsRendering(rendered)
+    : rendered;
+  itemsContainer.insertAdjacentHTML("afterbegin", wrapped);
+  const section = itemsContainer.querySelector(
+    `.soul-burn-inventory-section[data-actor-id="${actor.id}"]`
+  );
+  if (section) bindTidySoulBurnInventory(section, actor);
+}
 
 Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
   const actor = app.actor;
   if (!actor || actor.type !== "character") return;
   const root = element?.nodeType === 1 ? element : element?.[0];
   if (!root) return;
+  void injectTidySoulBurnInventory(app, root);
   const itemsToIsolate = state(actor).active
     ? allOwnedSoulBurnActionItems(actor)
     : temporarySoulBurnActions(actor);
@@ -2538,7 +2597,7 @@ async function resolveNativeSoulBurnItemUse(document) {
   const action = normalizedSoulBurnAction(item);
   const resolutionKey = `${actor?.id ?? "none"}.${item?.id ?? action}`;
   if (
-    !["surge", "fate"].includes(action)
+    !["surge", "fate", "exit"].includes(action)
     || !isTemporarySoulBurnAction(item)
     || !actor
     || !state(actor).active
@@ -2547,6 +2606,10 @@ async function resolveNativeSoulBurnItemUse(document) {
 
   resolvingNativeSoulBurnItems.add(resolutionKey);
   try {
+    if (action === "exit") {
+      await endBurn(actor, "Soul Burn Ended Early");
+      return;
+    }
     if (action === "fate") {
       await endBurn(actor, "Fate Shift");
       return;
