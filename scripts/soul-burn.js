@@ -557,11 +557,28 @@ async function cleanLegacyCompendiumIndex() {
 }
 
 function renderActorSheetSoon(actor) {
-  if (!actor?.sheet?.rendered) return;
-  // A full render is intentional: Tidy rebuilds its tab navigation only on a
-  // full sheet render, so this makes the conditional Soul Burn tab appear or
-  // disappear immediately when the transformation state changes.
-  setTimeout(() => actor.sheet.render(true), 25);
+  if (!actor) return;
+  const applications = new Set([
+    actor.sheet,
+    ...Object.values(actor.apps ?? {}),
+    ...Object.values(ui.windows ?? {}).filter(app =>
+      app?.actor?.id === actor.id || app?.object?.id === actor.id
+    )
+  ]);
+
+  // PopOut! moves an application's DOM into another browser window while
+  // retaining the Foundry Application object. Refresh every rendered Actor
+  // application so Tidy rebuilds its conditional navigation in either place.
+  setTimeout(() => {
+    for (const app of applications) {
+      if (!app?.rendered) continue;
+      try {
+        app.render(true);
+      } catch (error) {
+        console.warn("Soul Burn | Could not refresh an open character sheet.", error);
+      }
+    }
+  }, 25);
 }
 
 function soulBurnFeature(actor) {
@@ -1581,7 +1598,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.14"
+    version: "1.0.15"
   });
 
   await cleanLegacyCompendiumIndex();

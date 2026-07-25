@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.15
+
+- Refreshes every open Actor sheet application after Soul Burn state changes,
+  including sheets moved into a separate browser window by PopOut!.
+- Keeps the same application open while Tidy rebuilds the conditional Soul
+  Burn tab; the player does not need to close and reopen their sheet.
+
 ## 1.0.14
 
 - Clicking the owned Soul Burn feature now opens the module dashboard directly
