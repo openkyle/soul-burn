@@ -1,0 +1,46 @@
+<form class="soul-burn-sound-form">
+  <p class="notes">
+    Choose audio from Foundry's file browser. The bundled files work by default.
+    Preview plays only for you; in-game sounds are shared with connected players.
+  </p>
+
+  <div class="form-group">
+    <label>Soul Burn Power-Up</label>
+    <div class="form-fields">
+      <input type="text" name="powerUpSound" value="{{powerUpSound}}">
+      <button type="button" data-browse-target="powerUpSound" title="Browse">
+        <i class="fas fa-folder-open"></i>
+      </button>
+      <button type="button" data-preview-target="powerUpSound" title="Preview">
+        <i class="fas fa-play"></i>
+      </button>
+      <button type="button" data-default-target="powerUpSound" title="Restore bundled sound">
+        <i class="fas fa-rotate-left"></i>
+      </button>
+    </div>
+    <p class="hint">Played when Soul Burn activates.</p>
+  </div>
+
+  <div class="form-group">
+    <label>Aetherglow Drinking</label>
+    <div class="form-fields">
+      <input type="text" name="aetherglowSound" value="{{aetherglowSound}}">
+      <button type="button" data-browse-target="aetherglowSound" title="Browse">
+        <i class="fas fa-folder-open"></i>
+      </button>
+      <button type="button" data-preview-target="aetherglowSound" title="Preview">
+        <i class="fas fa-play"></i>
+      </button>
+      <button type="button" data-default-target="aetherglowSound" title="Restore bundled sound">
+        <i class="fas fa-rotate-left"></i>
+      </button>
+    </div>
+    <p class="hint">Played when Aetherglow is consumed.</p>
+  </div>
+
+  <footer class="sheet-footer flexrow">
+    <button type="submit" name="submit">
+      <i class="fas fa-save"></i> Save
+    </button>
+  </footer>
+</form>

@@ -12,11 +12,95 @@ const SB = {
   effectName: "Soul Burn",
   transformedTokenRoot:
     "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/CharTokens/AstrumKnights",
-  sound:
-    "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/Sound%20FX/AetherUp3.ogg",
+  defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
+  defaultAetherglowSound: "modules/soul-burn/sounds/AetherGlow.ogg",
   sacredFlame:
     "modules/jb2a_patreon/Library/Cantrip/Sacred_Flame/SacredFlameTarget_01_Regular_Yellow_400x400.webm"
 };
+
+function soundPath(setting) {
+  return game.settings.get("soul-burn", setting);
+}
+
+class SoulBurnSoundSettings extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: "soul-burn-sound-settings",
+      title: "Soul Burn Sound Settings",
+      template: "modules/soul-burn/templates/sound-settings.hbs",
+      width: 620,
+      closeOnSubmit: true
+    });
+  }
+
+  getData() {
+    return {
+      powerUpSound: soundPath("powerUpSound"),
+      aetherglowSound: soundPath("aetherglowSound"),
+      defaultPowerUpSound: SB.defaultPowerUpSound,
+      defaultAetherglowSound: SB.defaultAetherglowSound
+    };
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    html.find("[data-browse-target]").on("click", event => {
+      event.preventDefault();
+      const target = event.currentTarget.dataset.browseTarget;
+      const input = html.find(`[name="${target}"]`);
+      new FilePicker({
+        type: "audio",
+        current: input.val(),
+        callback: path => input.val(path).trigger("change")
+      }).render(true);
+    });
+    html.find("[data-preview-target]").on("click", event => {
+      event.preventDefault();
+      const target = event.currentTarget.dataset.previewTarget;
+      const src = String(html.find(`[name="${target}"]`).val() ?? "").trim();
+      if (src) AudioHelper.play({ src, volume: 0.5, autoplay: true, loop: false }, false);
+    });
+    html.find("[data-default-target]").on("click", event => {
+      event.preventDefault();
+      const target = event.currentTarget.dataset.defaultTarget;
+      const value = target === "powerUpSound" ? SB.defaultPowerUpSound : SB.defaultAetherglowSound;
+      html.find(`[name="${target}"]`).val(value).trigger("change");
+    });
+  }
+
+  async _updateObject(_event, formData) {
+    await game.settings.set("soul-burn", "powerUpSound", String(formData.powerUpSound ?? "").trim());
+    await game.settings.set("soul-burn", "aetherglowSound", String(formData.aetherglowSound ?? "").trim());
+    ui.notifications.info("Soul Burn sound settings saved.");
+  }
+}
+
+Hooks.once("init", () => {
+  game.settings.register("soul-burn", "powerUpSound", {
+    name: "Soul Burn Power-Up Sound",
+    hint: "Audio played when a character enters Soul Burn.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: SB.defaultPowerUpSound
+  });
+  game.settings.register("soul-burn", "aetherglowSound", {
+    name: "Aetherglow Drinking Sound",
+    hint: "Audio played when a character consumes Aetherglow.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: SB.defaultAetherglowSound
+  });
+  game.settings.registerMenu("soul-burn", "soundSettings", {
+    name: "Soul Burn Sounds",
+    label: "Configure Sounds",
+    hint: "Browse for, preview, or restore the Soul Burn audio files.",
+    icon: "fas fa-volume-high",
+    type: SoulBurnSoundSettings,
+    restricted: true
+  });
+});
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const esc = value => {
@@ -246,9 +330,17 @@ async function playAnimation(token, nextState) {
     return;
   }
 
+  const powerUpSound = soundPath("powerUpSound");
+  if (powerUpSound) {
+    try {
+      await AudioHelper.play({ src: powerUpSound, volume: 0.5, autoplay: true, loop: false }, true);
+    } catch (error) {
+      console.warn("Soul Burn | Power-up sound skipped.", error);
+    }
+  }
+
   if (globalThis.Sequence) {
     try {
-      new Sequence().sound().file(SB.sound).volume(0.5).play();
       await wait(700);
       await new Sequence()
         .effect()
@@ -514,6 +606,14 @@ async function fateShift(actor) {
 
 async function consumeAetherglow(actor) {
   const current = state(actor);
+  const drinkingSound = soundPath("aetherglowSound");
+  if (drinkingSound) {
+    try {
+      await AudioHelper.play({ src: drinkingSound, volume: 0.5, autoplay: true, loop: false }, true);
+    } catch (error) {
+      console.warn("Soul Burn | Aetherglow sound skipped.", error);
+    }
+  }
   const roll = await makeRoll("1d20");
   const removed = Math.max(1, roll.total - current.tolerance);
   const next = {
@@ -682,7 +782,7 @@ Hooks.once("ready", async () => {
   game.soulBurn = Object.freeze({
     open: openSoulBurn,
     getState: actor => state(actor),
-    version: "1.0.0"
+    version: "1.0.1"
   });
 
   if (!game.user.isGM) return;

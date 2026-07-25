@@ -16,3 +16,18 @@
 .window-header .soul-burn-open i {
   color: #f59b23;
 }
+
+.soul-burn-sound-form .form-fields input {
+  flex: 1;
+}
+
+.soul-burn-sound-form .form-fields button {
+  flex: 0 0 36px;
+  height: 32px;
+  margin: 0 0 0 4px;
+  padding: 0;
+}
+
+.soul-burn-sound-form .sheet-footer {
+  margin-top: 1rem;
+}

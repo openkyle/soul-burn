@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+
+- Bundled `AetherUp3.ogg` as the Soul Burn activation sound.
+- Bundled `AetherGlow.ogg` as the Aetherglow drinking sound.
+- Added a GM-only Foundry settings panel with Browse, Preview, and Restore
+  Default controls for both sounds.
+
 ## 1.0.0
 
 - Packaged Soul Burn as an installable Foundry module.

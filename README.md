@@ -89,6 +89,15 @@ and before/after tolerance.
 - An Actor with dnd5e class items and Hit Dice
 - The Actor's third resource configured as **Soul Burn**
 
+Both audio effects are bundled with the module:
+
+- `AetherUp3.ogg` plays when Soul Burn activates.
+- `AetherGlow.ogg` plays when Aetherglow is consumed.
+
+The GM can change either sound under **Configure Settings → Module Settings →
+Soul Burn Sounds**. The settings panel includes Browse, Preview, and Restore
+Bundled Sound controls.
+
 The mechanics work without animation modules. These optional modules preserve
 the supplied transformation:
 
@@ -96,9 +105,9 @@ the supplied transformation:
 - JB2A Patreon, using the Sacred Flame asset path in the macro
 - TokenMagic FX
 
-The sound and transformed token images currently use campaign-specific Forge
-asset URLs. Configure the constants at the top of
-[`soul-burn-macro.js`](./soul-burn-macro.js) if those assets move.
+Transformed token images currently use campaign-specific Forge asset URLs.
+Configure the constant at the top of
+[`scripts/soul-burn.js`](./scripts/soul-burn.js) if those assets move.
 
 ## Installation
 
