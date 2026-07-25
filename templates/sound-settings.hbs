@@ -40,6 +40,42 @@
 
   <hr>
 
+  <h2>Battlefield Ripple</h2>
+  <p class="notes">
+    When Soul Burn activates, a refractive wave expands from the character and
+    leaves the battlefield color-graded. The effect is synchronized for every
+    connected player viewing the scene.
+  </p>
+
+  <div class="form-group">
+    <label>Contrast Increase</label>
+    <div class="form-fields">
+      <input type="number" name="rippleContrast" value="{{rippleContrast}}" min="0" max="200" step="1">
+      <span class="units">%</span>
+    </div>
+    <p class="hint">Additional contrast after the ripple passes. Default: 10%.</p>
+  </div>
+
+  <div class="form-group">
+    <label>Desaturation</label>
+    <div class="form-fields">
+      <input type="number" name="rippleDesaturation" value="{{rippleDesaturation}}" min="0" max="100" step="1">
+      <span class="units">%</span>
+    </div>
+    <p class="hint">Amount of battlefield color removed. 100% is fully desaturated.</p>
+  </div>
+
+  <div class="form-group">
+    <label>Return to Normal</label>
+    <div class="form-fields">
+      <input type="number" name="rippleRecoverySeconds" value="{{rippleRecoverySeconds}}" min="1" max="600" step="1">
+      <span class="units">seconds</span>
+    </div>
+    <p class="hint">Real time taken for contrast and color to return to normal. Default: 60 seconds.</p>
+  </div>
+
+  <hr>
+
   <div class="form-group">
     <label>High Stakes Mode</label>
     <div class="form-fields">
@@ -47,7 +83,8 @@
     </div>
     <p class="hint">
       Multiplies the activation roll by lifetime Uses: first use 1 die, second
-      use 2 dice, third use 3 dice, and so on. The total sets Soul Burn and rounds.
+      use 2 dice, third use 3 dice, and so on. The total adds Soul Burn; the
+      first die determines the duration.
     </p>
   </div>
 

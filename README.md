@@ -125,7 +125,8 @@ Three audio effects are bundled with the module:
 
 The GM can change any sound under **Configure Settings → Module Settings →
 Soul Burn Settings**. The settings panel includes Browse, Preview, and Restore
-Bundled Sound controls.
+Bundled Sound controls. It also configures the synchronized battlefield
+ripple's contrast increase, desaturation, and real-time recovery duration.
 
 The mechanics work without animation modules. These optional modules preserve
 the supplied transformation:
@@ -302,14 +303,20 @@ Stored metadata includes:
 
 Activation preserves the supplied sequence:
 
-1. Play `AetherUp3.ogg`.
-2. Wait 700 ms.
-3. Play the yellow JB2A Sacred Flame effect for 5.4 seconds at 2× scale.
-4. Apply the animated white TokenMagic fire filter.
-5. Swap the token to the campaign-specific transformed image.
+1. Send a refractive ripple outward from the activating token for all clients
+   viewing the scene.
+2. Leave the battlefield at the configured contrast and desaturation, then
+   fade it back to its original grading over the configured real-time duration.
+3. Play `AetherUp3.ogg`.
+4. Wait 700 ms.
+5. Play the yellow JB2A Sacred Flame effect for 5.4 seconds at 2× scale.
+6. Apply the animated white TokenMagic fire filter.
+7. Swap the token to the campaign-specific transformed image.
 
-Animation calls are guarded. If Sequencer, JB2A, TokenMagic, or a transformed
-image is unavailable, the mechanical activation still completes.
+The ripple defaults to 10% additional contrast, 100% desaturation, and a
+60-second return to normal. Animation calls are guarded. If the canvas,
+Sequencer, JB2A, TokenMagic, or a transformed image is unavailable, the
+mechanical activation still completes.
 
 Ending Soul Burn removes the managed movement effect, removes the macro's
 TokenMagic filter, and restores the original token image.

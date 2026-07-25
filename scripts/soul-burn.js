@@ -41,6 +41,9 @@ class SoulBurnSoundSettings extends FormApplication {
       powerUpSound: soundPath("powerUpSound"),
       aetherglowSound: soundPath("aetherglowSound"),
       endSound: soundPath("endSound"),
+      rippleContrast: game.settings.get("soul-burn", "rippleContrast"),
+      rippleDesaturation: game.settings.get("soul-burn", "rippleDesaturation"),
+      rippleRecoverySeconds: game.settings.get("soul-burn", "rippleRecoverySeconds"),
       highStakesMode: game.settings.get("soul-burn", "highStakesMode"),
       requireEndConSave: game.settings.get("soul-burn", "requireEndConSave"),
       endConSaveDC: game.settings.get("soul-burn", "endConSaveDC"),
@@ -85,6 +88,21 @@ class SoulBurnSoundSettings extends FormApplication {
     await game.settings.set("soul-burn", "powerUpSound", String(formData.powerUpSound ?? "").trim());
     await game.settings.set("soul-burn", "aetherglowSound", String(formData.aetherglowSound ?? "").trim());
     await game.settings.set("soul-burn", "endSound", String(formData.endSound ?? "").trim());
+    await game.settings.set(
+      "soul-burn",
+      "rippleContrast",
+      Math.min(200, Math.max(0, Number(formData.rippleContrast) || 0))
+    );
+    await game.settings.set(
+      "soul-burn",
+      "rippleDesaturation",
+      Math.min(100, Math.max(0, Number(formData.rippleDesaturation) || 0))
+    );
+    await game.settings.set(
+      "soul-burn",
+      "rippleRecoverySeconds",
+      Math.min(600, Math.max(1, Number(formData.rippleRecoverySeconds) || 60))
+    );
     await game.settings.set("soul-burn", "highStakesMode", Boolean(formData.highStakesMode));
     await game.settings.set("soul-burn", "requireEndConSave", Boolean(formData.requireEndConSave));
     await game.settings.set(
@@ -195,6 +213,30 @@ Hooks.once("init", () => {
     type: String,
     default: SB.defaultEndSound
   });
+  game.settings.register("soul-burn", "rippleContrast", {
+    name: "Battlefield Ripple Contrast Increase",
+    hint: "Percentage of additional battlefield contrast after Soul Burn activates.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 10
+  });
+  game.settings.register("soul-burn", "rippleDesaturation", {
+    name: "Battlefield Ripple Desaturation",
+    hint: "Percentage of color removed from the battlefield after Soul Burn activates.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 100
+  });
+  game.settings.register("soul-burn", "rippleRecoverySeconds", {
+    name: "Battlefield Ripple Recovery Time",
+    hint: "Real-time seconds for the battlefield to return to normal.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 60
+  });
   game.settings.register("soul-burn", "requireEndConSave", {
     name: "Require Constitution Check When Soul Burn Ends",
     hint: "Roll a Constitution ability check and report the result when any Soul Burn period ends.",
@@ -222,7 +264,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu("soul-burn", "soundSettings", {
     name: "Soul Burn Settings",
     label: "Configure Soul Burn",
-    hint: "Configure High Stakes Mode, sounds, and end-of-burn Constitution checks.",
+    hint: "Configure the battlefield ripple, High Stakes Mode, sounds, and end-of-burn Constitution checks.",
     icon: "fas fa-fire-flame-curved",
     type: SoulBurnSoundSettings,
     restricted: true
@@ -864,11 +906,188 @@ function toleranceLine(value) {
   return lines[Math.min(19, Math.max(0, Number(value) || 0))];
 }
 
+const RIPPLE_EXPANSION_MS = 2400;
+let activeBattlefieldRipple = null;
+
+function battlefieldRippleSettings() {
+  return {
+    contrast: Math.min(
+      200,
+      Math.max(0, Number(game.settings.get("soul-burn", "rippleContrast")) || 0)
+    ),
+    desaturation: Math.min(
+      100,
+      Math.max(0, Number(game.settings.get("soul-burn", "rippleDesaturation")) || 0)
+    ),
+    recoverySeconds: Math.min(
+      600,
+      Math.max(1, Number(game.settings.get("soul-burn", "rippleRecoverySeconds")) || 60)
+    )
+  };
+}
+
+function stopBattlefieldRipple() {
+  const active = activeBattlefieldRipple;
+  if (!active) return;
+  activeBattlefieldRipple = null;
+  active.animation?.cancel();
+  if (active.timer) clearTimeout(active.timer);
+  active.overlay?.remove();
+  if (active.view) {
+    active.view.style.filter = active.baseFilter;
+    active.view.style.transition = active.baseTransition;
+  }
+}
+
+function battlefieldScreenPoint(worldPoint, view) {
+  try {
+    const screen = canvas.stage.worldTransform.apply(
+      new PIXI.Point(worldPoint.x, worldPoint.y)
+    );
+    const rendererScreen = canvas.app.renderer.screen;
+    const rect = view.getBoundingClientRect();
+    return {
+      x: screen.x * (rect.width / rendererScreen.width),
+      y: screen.y * (rect.height / rendererScreen.height)
+    };
+  } catch (error) {
+    console.warn("Soul Burn | Could not calculate the battlefield ripple origin.", error);
+    return null;
+  }
+}
+
+async function playBattlefieldRipple({ sceneId, x, y } = {}) {
+  if (!canvas?.ready || !canvas.scene || canvas.scene.id !== sceneId) return;
+  const view = canvas.app?.view ?? canvas.app?.canvas;
+  if (!view?.getBoundingClientRect) return;
+
+  const settings = battlefieldRippleSettings();
+  const rect = view.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const point = battlefieldScreenPoint({ x, y }, view);
+  if (!point) return;
+
+  stopBattlefieldRipple();
+
+  const overlay = document.createElement("div");
+  overlay.className = "soul-burn-battlefield-overlay";
+  Object.assign(overlay.style, {
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`
+  });
+
+  const distance = Math.max(
+    Math.hypot(point.x, point.y),
+    Math.hypot(rect.width - point.x, point.y),
+    Math.hypot(point.x, rect.height - point.y),
+    Math.hypot(rect.width - point.x, rect.height - point.y)
+  );
+  const diameter = Math.max(1, distance * 2.08);
+  const contrast = 100 + settings.contrast;
+  const circle = document.createElement("div");
+  circle.className = "soul-burn-battlefield-wave";
+  Object.assign(circle.style, {
+    width: `${diameter}px`,
+    height: `${diameter}px`,
+    left: `${point.x - diameter / 2}px`,
+    top: `${point.y - diameter / 2}px`,
+    backdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`,
+    webkitBackdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`
+  });
+  overlay.append(circle);
+  document.body.append(overlay);
+
+  const baseFilter = view.style.filter;
+  const baseTransition = view.style.transition;
+  const colorGrade = [
+    baseFilter,
+    `contrast(${contrast}%)`,
+    `grayscale(${settings.desaturation}%)`
+  ].filter(Boolean).join(" ");
+  const animation = circle.animate(
+    [
+      { transform: "scale(0.001)", opacity: 0.25 },
+      { transform: "scale(1)", opacity: 1 }
+    ],
+    {
+      duration: RIPPLE_EXPANSION_MS,
+      easing: "cubic-bezier(0.12, 0.72, 0.22, 1)",
+      fill: "forwards"
+    }
+  );
+
+  const effect = {
+    animation,
+    overlay,
+    view,
+    baseFilter,
+    baseTransition,
+    timer: null
+  };
+  activeBattlefieldRipple = effect;
+
+  try {
+    await animation.finished;
+  } catch (_error) {
+    return;
+  }
+  if (activeBattlefieldRipple !== effect) return;
+
+  // Transfer the color grade from the expanding backdrop-filter to the canvas
+  // itself, then animate only that grade back to the user's original filter.
+  view.style.transition = "none";
+  view.style.filter = colorGrade;
+  overlay.remove();
+  void view.offsetWidth;
+  view.style.transition = [
+    baseTransition,
+    `filter ${settings.recoverySeconds}s linear`
+  ].filter(Boolean).join(", ");
+  requestAnimationFrame(() => {
+    if (activeBattlefieldRipple === effect) {
+      view.style.filter = baseFilter || "none";
+    }
+  });
+
+  effect.timer = setTimeout(() => {
+    if (activeBattlefieldRipple !== effect) return;
+    activeBattlefieldRipple = null;
+    view.style.filter = baseFilter;
+    view.style.transition = baseTransition;
+  }, settings.recoverySeconds * 1000 + 150);
+}
+
+function broadcastBattlefieldRipple(token) {
+  if (!token || !canvas.scene) return;
+  const center = token.center ?? {
+    x: Number(token.document.x ?? 0) + Number(token.w ?? 0) / 2,
+    y: Number(token.document.y ?? 0) + Number(token.h ?? 0) / 2
+  };
+  const request = {
+    type: "battlefieldRipple",
+    requesterId: game.user.id,
+    actorId: token.actor?.id,
+    sceneId: canvas.scene.id,
+    x: Number(center.x),
+    y: Number(center.y)
+  };
+  void playBattlefieldRipple(request);
+  game.socket.emit("module.soul-burn", request);
+}
+
+Hooks.on("canvasTearDown", () => {
+  stopBattlefieldRipple();
+});
+
 async function playAnimation(token, nextState) {
   if (!token) {
     ui.notifications.info("Soul Burn activated on the actor; no active token was available for animation.");
     return;
   }
+
+  broadcastBattlefieldRipple(token);
 
   const powerUpSound = soundPath("powerUpSound");
   if (powerUpSound) {
@@ -1767,12 +1986,30 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.18"
+    version: "1.0.19"
   });
 
   await cleanLegacyCompendiumIndex();
 
   game.socket.on("module.soul-burn", async request => {
+    if (request?.type === "battlefieldRipple") {
+      if (request.requesterId === game.user.id) return;
+      const requester = game.users.get(request.requesterId);
+      const actor = game.actors.get(request.actorId);
+      const authorized = requester
+        && actor
+        && actor.testUserPermission(requester, "OWNER");
+      if (
+        authorized
+        && request.sceneId === canvas.scene?.id
+        && Number.isFinite(Number(request.x))
+        && Number.isFinite(Number(request.y))
+      ) {
+        void playBattlefieldRipple(request);
+      }
+      return;
+    }
+
     if (!game.user.isGM || request?.gmId !== game.user.id) return;
     if (request.type !== "consumeAetherglow") return;
     const requester = game.users.get(request.requesterId);

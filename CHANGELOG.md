@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.19
+
+- Added a synchronized battlefield-wide Soul Burn ripple originating from the
+  activating token for every connected client viewing that scene.
+- The expanding refractive wave leaves the battlefield more contrasty and
+  desaturated, then smoothly restores the original canvas grading in real
+  time.
+- Added GM settings for contrast increase, desaturation, and recovery seconds.
+  Defaults are 10%, 100%, and 60 seconds.
+- Uses a canvas DOM effect rather than a version-specific PIXI shader, keeping
+  the visual compatible across the supported Foundry versions.
+
 ## 1.0.18
 
 - Intercepts Soul Burn launches at the character-sheet click itself, before
