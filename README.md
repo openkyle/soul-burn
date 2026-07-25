@@ -344,12 +344,18 @@ Activation preserves the supplied sequence:
 3. Play the yellow JB2A Sacred Flame explosion for 5.4 seconds at 2× scale.
 4. Apply the animated white TokenMagic fire filter.
 5. Swap the token to the campaign-specific transformed image.
-6. Send the grayscale refractive ripple outward from the transformed token for
-   all clients viewing the scene.
-7. Leave the battlefield at the configured contrast and desaturation, then
+6. Hold the completed transformation in full color for one second.
+7. Send the live grayscale refractive ripple outward from the transformed token
+   for all clients viewing the scene. Each client resolves the token through
+   its own camera transform so the origin remains correct at different pans and
+   zoom levels.
+8. Leave the battlefield at the configured contrast and desaturation, then
    fade it back to its original grading over the configured real-time duration.
-8. Preserve only the transformed token art in full color, using the image's
-   own transparent pixels. No surrounding battlefield aura is preserved.
+
+The ripple uses the original live backdrop-filter implementation. It does not
+copy the WebGL canvas, create a duplicate token image, or preserve a colored
+circle around the character. This avoids GPU readback black-circle artifacts
+and color-aura alignment problems.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,

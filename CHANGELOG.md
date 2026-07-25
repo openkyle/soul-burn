@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.27
+
+- Restored the original live backdrop-filter black-and-white ripple.
+- Removed the WebGL canvas snapshot, clipped grayscale copy, duplicated
+  full-color token media, and all color-preservation aura behavior. GPU
+  readback can intermittently produce an opaque black snapshot; the live
+  effect does not perform that readback.
+- Ripple playback now begins one full second after the Sacred Flame animation,
+  TokenMagic effect, and transformed token image have completed.
+- Each client resolves the origin from the exact live token ID through its own
+  camera transform. Transmitted scene coordinates are only a fallback, avoiding
+  offset origins for clients with different pan and zoom states.
+- Fixed the small player-only square beneath the permanent Soul Burn feature.
+  It was a decorative lock pseudo-element wrapping into a new TidySheet grid
+  cell. Player edit/delete enforcement remains active.
+
 ## 1.0.26
 
 - Reduced the height, icon size, controls, and typography of the active

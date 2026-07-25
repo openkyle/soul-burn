@@ -1190,11 +1190,8 @@ function stopBattlefieldRipple() {
   if (!active) return;
   activeBattlefieldRipple = null;
   active.animation?.cancel();
-  active.ringAnimation?.cancel();
-  if (active.tokenFrame) cancelAnimationFrame(active.tokenFrame);
   if (active.timer) clearTimeout(active.timer);
   active.overlay?.remove();
-  active.tokenMedia?.remove();
   if (active.view) {
     active.view.style.filter = active.baseFilter;
     active.view.style.transition = active.baseTransition;
@@ -1218,70 +1215,19 @@ function battlefieldScreenPoint(worldPoint, view) {
   }
 }
 
-function startBattlefieldTokenPreserver(effect) {
-  const { view } = effect;
-  let tokenMedia = null;
-  let mediaSource = "";
-
-  const draw = () => {
-    if (activeBattlefieldRipple !== effect) return;
-    effect.tokenFrame = requestAnimationFrame(draw);
-
-    const rect = view.getBoundingClientRect();
-    const token = canvas.tokens?.get(effect.tokenId)
-      ?? canvas.tokens?.placeables?.find(placeable => placeable.actor?.id === effect.actorId);
-    if (!token || !token.visible || !rect.width || !rect.height) {
-      if (tokenMedia) tokenMedia.style.display = "none";
-      return;
-    }
-
-    const source = String(token.document.texture?.src ?? token.document.img ?? "").trim();
-    if (!source) return;
-    if (!tokenMedia || mediaSource !== source) {
-      tokenMedia?.remove();
-      const video = /\.(?:webm|mp4|m4v|ogv)(?:[?#].*)?$/i.test(source);
-      tokenMedia = document.createElement(video ? "video" : "img");
-      tokenMedia.className = "soul-burn-battlefield-token-preserver";
-      tokenMedia.src = source;
-      if (video) {
-        tokenMedia.autoplay = true;
-        tokenMedia.loop = true;
-        tokenMedia.muted = true;
-        tokenMedia.playsInline = true;
-        void tokenMedia.play().catch(() => {});
-      }
-      document.body.append(tokenMedia);
-      effect.tokenMedia = tokenMedia;
-      mediaSource = source;
-    }
-
-    const point = battlefieldScreenPoint(token.center ?? effect.origin, view);
-    if (!point) {
-      tokenMedia.style.display = "none";
-      return;
-    }
-
-    const rendererWidth = Number(canvas.app.renderer.screen?.width ?? rect.width);
-    const rendererHeight = Number(canvas.app.renderer.screen?.height ?? rect.height);
-    const zoomX = Math.abs(Number(canvas.stage.scale?.x ?? 1));
-    const zoomY = Math.abs(Number(canvas.stage.scale?.y ?? zoomX));
-    const textureScaleX = Math.abs(Number(token.document.texture?.scaleX ?? 1));
-    const textureScaleY = Math.abs(Number(token.document.texture?.scaleY ?? 1));
-    const width = Number(token.w ?? 0) * zoomX * (rect.width / rendererWidth) * textureScaleX;
-    const height = Number(token.h ?? 0) * zoomY * (rect.height / rendererHeight) * textureScaleY;
-    if (!width || !height) return;
-
-    Object.assign(tokenMedia.style, {
-      display: "block",
-      left: `${rect.left + point.x - width / 2}px`,
-      top: `${rect.top + point.y - height / 2}px`,
-      width: `${width}px`,
-      height: `${height}px`,
-      opacity: String(token.document.alpha ?? 1),
-      transform: `rotate(${Number(token.document.rotation ?? 0)}deg)`
-    });
-  };
-  effect.tokenFrame = requestAnimationFrame(draw);
+function battlefieldRippleOrigin({ tokenId, actorId, x, y }, view) {
+  const liveToken = tokenId
+    ? canvas.tokens?.get(tokenId)
+    : canvas.tokens?.placeables?.find(placeable => placeable.actor?.id === actorId);
+  const liveCenter = liveToken?.center;
+  if (
+    liveCenter
+    && Number.isFinite(Number(liveCenter.x))
+    && Number.isFinite(Number(liveCenter.y))
+  ) {
+    return battlefieldScreenPoint(liveCenter, view);
+  }
+  return battlefieldScreenPoint({ x: Number(x), y: Number(y) }, view);
 }
 
 async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
@@ -1292,7 +1238,9 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   const settings = battlefieldRippleSettings();
   const rect = view.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
-  const point = battlefieldScreenPoint({ x, y }, view);
+  // Each connected client resolves the live token center through its own
+  // camera transform. The transmitted scene position is only a fallback.
+  const point = battlefieldRippleOrigin({ tokenId, actorId, x, y }, view);
   if (!point) return;
 
   stopBattlefieldRipple();
@@ -1314,33 +1262,17 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   );
   const diameter = Math.max(1, distance * 2.08);
   const contrast = 100 + settings.contrast;
-  const grayCanvas = document.createElement("canvas");
-  grayCanvas.className = "soul-burn-battlefield-gray";
-  grayCanvas.width = Number(view.width ?? canvas.app.renderer.width);
-  grayCanvas.height = Number(view.height ?? canvas.app.renderer.height);
-  grayCanvas.getContext("2d").drawImage(
-    view,
-    0,
-    0,
-    grayCanvas.width,
-    grayCanvas.height
-  );
-  Object.assign(grayCanvas.style, {
-    width: "100%",
-    height: "100%",
-    filter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`
-  });
-  overlay.append(grayCanvas);
-
-  const ring = document.createElement("div");
-  ring.className = "soul-burn-battlefield-wave";
-  Object.assign(ring.style, {
+  const circle = document.createElement("div");
+  circle.className = "soul-burn-battlefield-wave";
+  Object.assign(circle.style, {
     width: `${diameter}px`,
     height: `${diameter}px`,
     left: `${point.x - diameter / 2}px`,
-    top: `${point.y - diameter / 2}px`
+    top: `${point.y - diameter / 2}px`,
+    backdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`,
+    webkitBackdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`
   });
-  overlay.append(ring);
+  overlay.append(circle);
   document.body.append(overlay);
 
   const baseFilter = view.style.filter;
@@ -1350,20 +1282,9 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
     `contrast(${contrast}%)`,
     `grayscale(${settings.desaturation}%)`
   ].filter(Boolean).join(" ");
-  const animation = grayCanvas.animate(
+  const animation = circle.animate(
     [
-      { clipPath: `circle(0px at ${point.x}px ${point.y}px)` },
-      { clipPath: `circle(${distance * 1.04}px at ${point.x}px ${point.y}px)` }
-    ],
-    {
-      duration: RIPPLE_EXPANSION_MS,
-      easing: "cubic-bezier(0.12, 0.72, 0.22, 1)",
-      fill: "forwards"
-    }
-  );
-  const ringAnimation = ring.animate(
-    [
-      { transform: "scale(0.001)", opacity: 0.25 },
+      { transform: "scale(0.001)", opacity: 0 },
       { transform: "scale(1)", opacity: 1 }
     ],
     {
@@ -1375,24 +1296,23 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
 
   const effect = {
     animation,
-    ringAnimation,
     overlay,
     view,
     baseFilter,
     baseTransition,
-    actorId,
-    tokenId,
-    origin: { x, y },
-    tokenMedia: null,
-    tokenFrame: null,
     timer: null
   };
   activeBattlefieldRipple = effect;
-  startBattlefieldTokenPreserver(effect);
 
   try {
-    await Promise.all([animation.finished, ringAnimation.finished]);
+    await animation.finished;
   } catch (_error) {
+    if (activeBattlefieldRipple === effect) {
+      activeBattlefieldRipple = null;
+      overlay.remove();
+      view.style.filter = baseFilter;
+      view.style.transition = baseTransition;
+    }
     return;
   }
   if (activeBattlefieldRipple !== effect) return;
@@ -1416,8 +1336,6 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   effect.timer = setTimeout(() => {
     if (activeBattlefieldRipple !== effect) return;
     activeBattlefieldRipple = null;
-    if (effect.tokenFrame) cancelAnimationFrame(effect.tokenFrame);
-    effect.tokenMedia?.remove();
     view.style.filter = baseFilter;
     view.style.transition = baseTransition;
   }, settings.recoverySeconds * 1000 + 150);
@@ -1475,7 +1393,6 @@ async function playAnimation(token, nextState) {
       // completion. Waiting on both guarantees that the grayscale ripple never
       // starts before the configured full-color animation has finished.
       await Promise.all([sequence.play(), wait(animationDuration)]);
-      await wait(1000);
     } catch (error) {
       console.warn("Soul Burn | Sequencer/JB2A animation skipped.", error);
     }
@@ -1523,9 +1440,10 @@ async function playAnimation(token, nextState) {
     console.warn("Soul Burn | Transformed token image unavailable.", error);
   }
 
-  // Let the power-up explosion complete in full color. The grayscale wave
-  // begins only after the transformed token is ready, and preserves that
-  // token's own transparent pixels rather than a colored area around it.
+  // Keep the completed transformation visible in full color for one full
+  // second. The original live backdrop-filter ripple then begins from the
+  // activating token; no canvas snapshot or duplicate color aura is created.
+  await wait(1000);
   broadcastBattlefieldRipple(token);
 }
 
@@ -2429,7 +2347,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.26"
+    version: "1.0.27"
   });
 
   await cleanLegacyCompendiumIndex();

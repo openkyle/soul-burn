@@ -50,26 +50,9 @@
   contain: strict;
 }
 
-.soul-burn-battlefield-gray {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  will-change: clip-path;
-}
-
-.soul-burn-battlefield-token-preserver {
-  position: fixed;
-  z-index: 2;
-  pointer-events: none;
-  object-fit: contain;
-  transform-origin: center;
-  filter: none !important;
-  will-change: left, top, width, height, transform;
-}
-
 .soul-burn-battlefield-wave {
   position: absolute;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.001);
   border: 2px solid rgba(255, 231, 154, 0.9);
   border-radius: 50%;
   box-shadow:
@@ -91,6 +74,8 @@
   box-shadow:
     inset 0 0 12px rgba(255, 255, 255, 0.24),
     0 0 12px rgba(220, 232, 255, 0.32);
+  backdrop-filter: blur(1.5px) brightness(1.08);
+  -webkit-backdrop-filter: blur(1.5px) brightness(1.08);
 }
 
 .soul-burn-sound-form .form-fields input {
@@ -210,14 +195,6 @@
 
 .soul-burn-managed-hidden {
   display: none !important;
-}
-
-.soul-burn-feature-locked::after {
-  content: "\f023";
-  margin-left: 0.35rem;
-  color: #846b3d;
-  font-family: "Font Awesome 6 Free";
-  font-weight: 900;
 }
 
 .soul-burn-lock-notice {
