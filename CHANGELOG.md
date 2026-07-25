@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.7
+
+- Added a dedicated **Soul Burn** top tab to Tidy5e character sheets.
+- Entering Soul Burn copies managed temporary versions of AetherStrike,
+  Channel Aether, and Fate Shift from the module compendium to the character.
+- The dedicated tab presents the three actions with their supplied artwork,
+  activation details, clickable workflows, and Channel Aether's live charges.
+- Managed Soul Burn actions are hidden from ordinary Tidy Actions, Inventory,
+  and Features areas so they appear only in the dedicated tab.
+- Ending Soul Burn removes only the module-managed temporary action copies and
+  removes the tab from the sheet.
+- World startup repairs missing actions for active characters and clears stale
+  managed copies from inactive characters.
+
 ## 1.0.6
 
 - Removed all Channel Aether flags, GM tracking, checkboxes, and reset controls.

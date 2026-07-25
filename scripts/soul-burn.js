@@ -10,6 +10,8 @@ const SB = {
   scope: "world",
   key: "soulBurn",
   effectName: "Soul Burn",
+  pack: "soul-burn.soul-burn-features",
+  temporaryActions: ["strike", "channel", "fate"],
   transformedTokenRoot:
     "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/CharTokens/AstrumKnights",
   defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
@@ -391,6 +393,75 @@ function state(actor) {
   };
 }
 
+function isTemporarySoulBurnAction(item) {
+  return Boolean(item?.getFlag(SB.scope, "temporaryAction"));
+}
+
+function temporarySoulBurnActions(actor) {
+  return actor?.items
+    ?.filter(item =>
+      isTemporarySoulBurnAction(item)
+      && SB.temporaryActions.includes(item.getFlag(SB.scope, "action"))
+    ) ?? [];
+}
+
+async function ensureTemporarySoulBurnActions(actor) {
+  if (!actor || actor.type !== "character") return [];
+
+  const managed = temporarySoulBurnActions(actor);
+  const keep = new Map();
+  const duplicates = [];
+  for (const item of managed) {
+    const action = item.getFlag(SB.scope, "action");
+    if (keep.has(action)) duplicates.push(item.id);
+    else keep.set(action, item);
+  }
+  if (duplicates.length) await actor.deleteEmbeddedDocuments("Item", duplicates);
+
+  const missing = SB.temporaryActions.filter(action => !keep.has(action));
+  if (missing.length) {
+    const pack = game.packs.get(SB.pack);
+    if (!pack) throw new Error("The Soul Burn Features compendium is unavailable.");
+    const sourceItems = await pack.getDocuments();
+    const sourceByAction = new Map(
+      sourceItems.map(item => [item.getFlag(SB.scope, "action"), item])
+    );
+    const creates = missing.map(action => {
+      const source = sourceByAction.get(action);
+      if (!source) throw new Error(`The ${action} action is missing from the Soul Burn compendium.`);
+      const data = source.toObject();
+      delete data._id;
+      data.flags ??= {};
+      data.flags[SB.scope] = {
+        ...(data.flags[SB.scope] ?? {}),
+        temporaryAction: true
+      };
+      data.flags.core = {
+        ...(data.flags.core ?? {}),
+        sourceId: source.uuid
+      };
+      return data;
+    });
+    const created = await actor.createEmbeddedDocuments("Item", creates);
+    for (const item of created) keep.set(item.getFlag(SB.scope, "action"), item);
+  }
+
+  return SB.temporaryActions.map(action => keep.get(action)).filter(Boolean);
+}
+
+async function removeTemporarySoulBurnActions(actor) {
+  const ids = temporarySoulBurnActions(actor).map(item => item.id);
+  if (ids.length) await actor.deleteEmbeddedDocuments("Item", ids);
+}
+
+function renderActorSheetSoon(actor) {
+  if (!actor?.sheet?.rendered) return;
+  // A full render is intentional: Tidy rebuilds its tab navigation only on a
+  // full sheet render, so this makes the conditional Soul Burn tab appear or
+  // disappear immediately when the transformation state changes.
+  setTimeout(() => actor.sheet.render(true), 25);
+}
+
 async function saveState(actor, next) {
   const { burn, ...metadata } = next;
   const updates = {};
@@ -692,6 +763,8 @@ async function activate(actor, token) {
   await applyMovement(actor);
   await playAnimation(token, next);
   await saveState(actor, next);
+  await ensureTemporarySoulBurnActions(actor);
+  renderActorSheetSoon(actor);
   await chat(
     actor,
     "Soul Burn",
@@ -779,6 +852,7 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   }
 
   await removeVisuals(actor, current);
+  await removeTemporarySoulBurnActions(actor);
   await saveState(actor, {
     ...current,
     active: false,
@@ -788,6 +862,7 @@ async function endBurn(actor, reason = "Soul Burn ends") {
     baseMovement: {},
     originalImages: {}
   });
+  renderActorSheetSoon(actor);
 
   let constitutionRoll = null;
   let constitutionSummary = "";
@@ -1137,12 +1212,73 @@ async function openSoulBurn({ actor = null, token = null } = {}) {
   }
 }
 
+Hooks.once("tidy5e-sheet.ready", api => {
+  api.registerCharacterTab(
+    new api.models.HandlebarsTab({
+      title: "Soul Burn",
+      tabId: "soul-burn-actions",
+      path: "/modules/soul-burn/templates/soul-burn-tab.hbs",
+      tabContentsClasses: ["soul-burn-tidy-tab"],
+      enabled: context =>
+        context.actor?.type === "character"
+        && state(context.actor).active,
+      getData: async data => {
+        const actor = data.actor;
+        const current = state(actor);
+        const actions = temporarySoulBurnActions(actor)
+          .sort((a, b) =>
+            SB.temporaryActions.indexOf(a.getFlag(SB.scope, "action"))
+            - SB.temporaryActions.indexOf(b.getFlag(SB.scope, "action"))
+          )
+          .map(item => {
+            const uses = item.system.uses ?? {};
+            return {
+              id: item.id,
+              action: item.getFlag(SB.scope, "action"),
+              name: item.name,
+              img: item.img,
+              activation: item.system.activation?.type
+                ? CONFIG.DND5E.activationTypes?.[item.system.activation.type]?.label
+                  ?? item.system.activation.type
+                : "",
+              hasUses: Number(uses.max ?? 0) > 0,
+              uses: Number(uses.value ?? 0),
+              maxUses: Number(uses.max ?? 0)
+            };
+          });
+        return {
+          actorName: actor.name,
+          actions,
+          tracked: Boolean(current.combatId && current.startedRound !== null),
+          startedRound: current.startedRound,
+          lastRound: current.endsRound === null ? null : Number(current.endsRound) - 1
+        };
+      }
+    }),
+    { layout: "all" }
+  );
+});
+
+Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
+  const actor = app.actor;
+  if (!actor || actor.type !== "character") return;
+  const root = element instanceof HTMLElement ? element : element?.[0];
+  if (!root) return;
+  for (const item of temporarySoulBurnActions(actor)) {
+    for (const node of root.querySelectorAll(`[data-item-id="${item.id}"]`)) {
+      if (!node.closest(".soul-burn-tidy-tab")) {
+        node.classList.add("soul-burn-managed-hidden");
+      }
+    }
+  }
+});
+
 Hooks.once("ready", async () => {
   game.soulBurn = Object.freeze({
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.6"
+    version: "1.0.7"
   });
 
   game.socket.on("module.soul-burn", async request => {
@@ -1169,6 +1305,8 @@ Hooks.once("ready", async () => {
   for (const actor of game.actors.filter(a => a.type === "character")) {
     const hasSoulBurn = actor.items.some(item => item.getFlag("soul-burn", "action") === "activate");
     if (hasSoulBurn) await initializeSoulBurnResource(actor);
+    if (state(actor).active) await ensureTemporarySoulBurnActions(actor);
+    else await removeTemporarySoulBurnActions(actor);
   }
   if (game.combat) await expireDueSoulBurn(game.combat);
 

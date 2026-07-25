@@ -20,6 +20,7 @@ While Soul Burn is active, the character receives:
 - Double movement.
 - One free Soul Burn action each turn.
 - Access to AetherStrike, Channel Aether, and Fate Shift.
+- A dedicated Tidy5e **Soul Burn** character-sheet tab while transformed.
 
 ### Maximum and Burnout
 
@@ -63,6 +64,18 @@ Damage: largest class Hit Die + total character level
 
 The dnd5e Item tracks its own two charges. Soul Burn does not store a separate
 Channel-used flag and provides no reset control.
+
+### Temporary Soul Burn action tab
+
+When a character enters Soul Burn, the module copies AetherStrike, Channel
+Aether, and Fate Shift from **Soul Burn Features** onto that Actor as managed
+temporary Items. Tidy5e Sheet shows them together in a dedicated top-level
+**Soul Burn** tab with clickable controls and live Channel Aether charges.
+
+The managed copies are hidden from the normal Actions, Inventory, and Features
+areas. When Soul Burn ends—manually, through Fate Shift, or through combat
+expiry—the module deletes only those managed copies and the tab disappears.
+Existing permanent Items with the same names are never deleted.
 
 ### Fate Shift
 

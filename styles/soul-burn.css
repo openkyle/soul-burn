@@ -80,3 +80,120 @@
 .soul-burn-player-manager .sheet-footer {
   margin-top: 12px;
 }
+
+.soul-burn-managed-hidden {
+  display: none !important;
+}
+
+.soul-burn-action-panel {
+  padding: 0.75rem;
+}
+
+.soul-burn-action-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  color: #f8ead0;
+  background:
+    linear-gradient(100deg, rgba(53, 20, 5, 0.96), rgba(118, 48, 6, 0.88)),
+    url("../icons/soul-burn.png") center / cover;
+  border: 1px solid #ca7b1d;
+  border-radius: 5px;
+  box-shadow: inset 0 0 18px rgba(255, 181, 48, 0.22);
+}
+
+.soul-burn-action-heading h2,
+.soul-burn-action-heading p {
+  margin: 0;
+  border: 0;
+}
+
+.soul-burn-action-heading h2 {
+  color: #fff3ce;
+  font-size: 1.35rem;
+}
+
+.soul-burn-action-heading p {
+  margin-top: 0.25rem;
+  color: #ead8bc;
+  font-size: 0.85rem;
+}
+
+.soul-burn-rounds {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.5rem;
+  color: #311704;
+  font-weight: 700;
+  background: #f2bd54;
+  border-radius: 3px;
+}
+
+.soul-burn-action-list {
+  overflow: hidden;
+  border: 1px solid var(--color-border-light-primary);
+  border-radius: 4px;
+}
+
+.soul-burn-action-row {
+  display: grid;
+  grid-template-columns: 54px minmax(160px, 1fr) 80px;
+  min-height: 54px;
+  align-items: stretch;
+  background: rgba(20, 20, 20, 0.82);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.soul-burn-action-row:last-child {
+  border-bottom: 0;
+}
+
+.soul-burn-action-row img {
+  width: 54px;
+  height: 54px;
+  object-fit: cover;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.soul-burn-action-row button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  height: 54px;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  color: #f5f1e8;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.soul-burn-action-row button:hover,
+.soul-burn-action-row button:focus {
+  color: #ffd57b;
+  background: rgba(210, 105, 20, 0.25);
+  box-shadow: inset 0 0 10px rgba(255, 172, 50, 0.22);
+}
+
+.soul-burn-action-row button strong {
+  font-size: 1rem;
+}
+
+.soul-burn-action-row button small {
+  color: #c9c1b4;
+}
+
+.soul-burn-action-uses {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e9dfcc;
+  font-weight: 700;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+}
