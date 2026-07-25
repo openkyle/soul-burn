@@ -179,8 +179,10 @@ system.resources.tertiary.label
 Dropping the Soul Burn feature onto a character automatically labels the
 tertiary resource `Soul Burn` and calculates its maximum when blank. Characters
 who already had the feature are repaired the next time a GM loads the world.
-Use the feature to post its chat card, then click **Enter Soul Burn** on that
-card. The module does not add a control to the top of character sheets.
+Clicking the feature opens the Luminara dashboard directly and does not post an
+initial dnd5e Item card. Cancelling leaves chat unchanged. Completing activation
+posts one button-free Soul Burn result card with the Hit Die roll, duration,
+movement, Soul Burn total, and combat-round details.
 
 ### Holy Amulet of Lux Eterna
 

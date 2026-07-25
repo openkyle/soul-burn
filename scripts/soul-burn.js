@@ -1598,7 +1598,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.15"
+    version: "1.0.16"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -1690,21 +1690,43 @@ Hooks.on("renderChatMessage", (message, html) => {
 // Activity hook supports newer releases.
 const soulBurnUseDebounce = new Map();
 
-function interceptSoulBurnUse(document) {
+function scheduleSoulBurnDashboard(document) {
   const item = document?.documentName === "Item" ? document : document?.item;
-  if (item?.getFlag(SB.scope, "action") !== "activate" || !item.parent) return true;
+  const actor = item?.actor
+    ?? (item?.parent?.documentName === "Actor" ? item.parent : null);
+  if (item?.getFlag(SB.scope, "action") !== "activate" || !actor) return false;
 
   const key = item.uuid;
   const now = Date.now();
   if ((soulBurnUseDebounce.get(key) ?? 0) + 250 < now) {
     soulBurnUseDebounce.set(key, now);
-    setTimeout(() => openSoulBurn({ actor: item.parent }), 0);
+    setTimeout(() => openSoulBurn({ actor }), 0);
   }
+  return true;
+}
+
+function interceptSoulBurnUse(document) {
+  if (!scheduleSoulBurnDashboard(document)) return true;
   return false;
 }
 
 Hooks.on("dnd5e.preUseItem", item => interceptSoulBurnUse(item));
 Hooks.on("dnd5e.preUseActivity", activity => interceptSoulBurnUse(activity));
+
+// Tidy's item-name click in dnd5e 2.4.1 calls Item#displayCard directly,
+// bypassing Item#use and therefore preUseItem. In that system version the
+// preDisplayCard hook is called with callAll, so returning false is ignored;
+// mutating createMessage is the supported way to prevent the ordinary card.
+Hooks.on("dnd5e.preDisplayCard", (item, _chatData, options) => {
+  if (!scheduleSoulBurnDashboard(item)) return;
+  options.createMessage = false;
+});
+
+// dnd5e 4+ replaced the legacy hook with a cancellable V2 hook.
+Hooks.on("dnd5e.preDisplayCardV2", item => {
+  if (!scheduleSoulBurnDashboard(item)) return true;
+  return false;
+});
 
 Hooks.on("createItem", async (item, _options, userId) => {
   if (userId !== game.user.id) return;

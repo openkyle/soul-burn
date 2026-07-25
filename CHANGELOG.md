@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.16
+
+- Intercepts Tidy's direct `Item#displayCard` path on dnd5e 2.4.1 as well as
+  the ordinary Item-use path.
+- Supports the cancellable `preDisplayCardV2` path used by newer dnd5e
+  releases.
+- Clicking Soul Burn now suppresses the initial dnd5e chat card and opens the
+  Luminara dashboard first. Chat remains unchanged if activation is cancelled;
+  successful activation posts only the button-free roll result.
+
 ## 1.0.15
 
 - Refreshes every open Actor sheet application after Soul Burn state changes,
