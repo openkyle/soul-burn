@@ -241,7 +241,7 @@
   gap: 0.65rem;
   padding: 0 0.35rem 0 0.5rem;
   color: var(--t5e-primary-font-color, inherit);
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
   list-style: none;
@@ -266,10 +266,31 @@
   transform: rotate(-90deg);
 }
 
-.soul-burn-inventory-rounds {
-  font-size: 0.8rem;
+.soul-burn-inventory-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.soul-burn-inventory-rounds,
+.soul-burn-inventory-tolerance {
+  font-size: 0.75rem;
   font-weight: 600;
   opacity: 0.8;
+}
+
+.soul-burn-inventory-player-uses {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  line-height: 20px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .soul-burn-inventory-list {
@@ -280,10 +301,10 @@
 
 .soul-burn-inventory-row {
   display: grid;
-  grid-template-columns: 34px minmax(180px, 1fr) 96px 112px 64px;
-  min-height: 34px;
+  grid-template-columns: 32px minmax(180px, 1fr) 96px 112px 32px;
+  min-height: 32px;
   align-items: center;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   background: rgba(236, 207, 127, 0.16);
   border-bottom: 1px solid rgba(127, 97, 47, 0.25);
 }
@@ -297,19 +318,63 @@
   background: rgba(236, 207, 127, 0.16) !important;
 }
 
-.soul-burn-inventory-row > img {
-  width: 34px;
-  height: 34px;
-  object-fit: cover;
+.soul-burn-inventory-image {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: inherit;
+  line-height: 32px;
+  background: transparent;
   border: 0;
   border-right: 1px solid rgba(127, 97, 47, 0.25);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.soul-burn-inventory-image img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border: 0;
+  transition: opacity 100ms ease;
+}
+
+.soul-burn-inventory-image i {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.soul-burn-inventory-image:hover,
+.soul-burn-inventory-image:focus {
+  color: inherit !important;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.soul-burn-inventory-image:hover img,
+.soul-burn-inventory-image:focus img {
+  opacity: 0;
+}
+
+.soul-burn-inventory-image:hover i,
+.soul-burn-inventory-image:focus i {
+  opacity: 1;
 }
 
 .soul-burn-inventory-name {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  height: 34px;
+  height: 32px;
   margin: 0;
   padding: 0 0.55rem;
   overflow: hidden;
@@ -376,7 +441,11 @@
   flex-wrap: wrap;
   gap: 0.25rem 0.5rem;
   margin-bottom: 0.3rem;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
+}
+
+.soul-burn-inventory-description {
+  font-size: 0.76rem;
 }
 
 .soul-burn-inventory-description > :first-child {

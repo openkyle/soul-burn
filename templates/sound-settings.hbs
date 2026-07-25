@@ -122,6 +122,28 @@
       </div>
 
       <div class="form-group">
+        <label>Show AGT in Inventory Bar</label>
+        <div class="form-fields">
+          <input type="checkbox" name="showAGTInInventoryBar" {{checked showAGTInInventoryBar}}>
+        </div>
+        <p class="hint">
+          Shows the active character's AGT and Player Uses information shortcut
+          in the Soul Burn Inventory heading.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label>Show Rounds Remaining in Inventory Bar</label>
+        <div class="form-fields">
+          <input type="checkbox" name="showRoundsInInventoryBar" {{checked showRoundsInInventoryBar}}>
+        </div>
+        <p class="hint">
+          Shows combat rounds remaining, or the manual duration, in the Soul
+          Burn Inventory heading.
+        </p>
+      </div>
+
+      <div class="form-group">
         <label>Constitution Check on End</label>
         <div class="form-fields">
           <input type="checkbox" name="requireEndConSave" {{checked requireEndConSave}}>
@@ -146,6 +168,19 @@
           <input type="number" name="endConSaveDC" value="{{endConSaveDC}}" min="1" max="30" step="1">
         </div>
         <p class="hint">The target number for the end-of-burn check.</p>
+      </div>
+
+      <div class="form-group">
+        <label>Escalating Constitution DC</label>
+        <div class="form-fields">
+          <input type="checkbox" name="escalatingEndConSaveDC" {{checked escalatingEndConSaveDC}}>
+        </div>
+        <p class="hint">
+          Starts at the Constitution Check DC above on the first lifetime Soul
+          Burn use, then increases by 2 for each later use. A failed escalating
+          check automatically adds one level of exhaustion. Enabling this also
+          enables Constitution Check on End and exhaustion on failure.
+        </p>
       </div>
 
       <hr>

@@ -14,13 +14,13 @@ The macro is designed for both workflows:
 Soul Burn is a Bonus Action reservoir granted through interaction with Aether.
 Entering Soul Burn requires at least one available Hit Die. The chosen die is
 rolled to determine the Soul Burn increase and round duration, but it is not
-expended. Hit Dice are expended afterward by AetherSurge.
+expended. Hit Dice are expended afterward by Aether Surge.
 
 While Soul Burn is active, the character receives:
 
 - Double movement.
 - One free Soul Burn action each turn.
-- Access to AetherSurge, Channel Aether, and Fate Shift.
+- Access to Aether Surge, Channel Aether, and Fate Shift.
 - A collapsible **Soul Burn** Item section containing the three attacks and an
   Exit Soul Burn Item above Weapons on Tidy5e's Inventory tab while transformed.
 
@@ -41,7 +41,7 @@ announces this result but never deletes the Actor. The final chat card is titled
 with the character's name and selects one of ten character-specific Burnout
 finales at random.
 
-### AetherSurge
+### Aether Surge
 
 After an attack hits, spend and roll one available class Hit Die. Apply the
 result to either:
@@ -72,7 +72,7 @@ store a separate Channel-used flag and provides no reset control.
 
 ### Temporary Soul Burn Item section
 
-When a character enters Soul Burn, the module copies AetherSurge, Channel
+When a character enters Soul Burn, the module copies Aether Surge, Channel
 Aether, and Fate Shift from **Soul Burn Features** onto that Actor as managed
 temporary Items. It also creates a managed **Exit Soul Burn** Item from the
 permanent Soul Burn feature. Tidy5e Sheet shows all four as regular usable rows
@@ -81,13 +81,13 @@ in a collapsible **Soul Burn** section above Weapons on the Inventory tab.
 The Item name and dice icon both perform the same native dnd5e Item use. The
 information icon opens the locked Item sheet for details. Native Item use
 handles attack rolls, Channel Aether charges, and other system consumption;
-module hooks handle AetherSurge's Hit Die and the Fate Shift/Exit ending
+module hooks handle Aether Surge's Hit Die and the Fate Shift/Exit ending
 workflows.
 
 Channel Aether uses dnd5e's native attack and damage workflow. It has a number
 of uses equal to the actor's proficiency bonus and refreshes on a short or long
 rest; the module does not add a second chat-card button or ability-selection
-dialog. AetherSurge expends one real class Hit Die after each successful native
+dialog. Aether Surge expends one real class Hit Die after each successful native
 Item use, and its Inventory row shows the actor's remaining and maximum Hit
 Dice.
 
@@ -205,7 +205,7 @@ Configure the constant at the top of
 
 The module includes one compendium pack:
 
-- **Soul Burn Features** contains Soul Burn, AetherSurge, Channel Aether,
+- **Soul Burn Features** contains Soul Burn, Aether Surge, Channel Aether,
   Fate Shift, and the Holy Amulet of Lux Eterna. Drag these onto a player
   character sheet.
   Each feature includes a button that runs its module-managed action for the
@@ -317,6 +317,9 @@ The activation card logs the starting and expiry rounds. Automatic expiry:
 - Resolves pending Burnout messaging.
 - Optionally rolls a Constitution ability check against the GM-configured DC.
 - Optionally applies one exhaustion level when that check fails.
+- With **Escalating Constitution DC** enabled, the first lifetime use checks
+  against the configured base DC and each later use adds 2. A failed escalating
+  check automatically adds one exhaustion level.
 
 Configure the ending sound and optional Constitution check under **Configure
 Settings → Module Settings → Soul Burn Settings**. The ending-sound field uses
@@ -338,6 +341,11 @@ next dice = max(1, Lifetime Uses + 1 - AetherGlow reduction steps)
 
 The reduction counter is separate from Lifetime Uses. Consuming AetherGlow
 does not alter Uses; later Soul Burn activations still increment Uses normally.
+
+The Mechanics tab also has independent **Show AGT in Inventory Bar** and
+**Show Rounds Remaining in Inventory Bar** options. Both default to enabled.
+The compact `AGT: X` display includes an information shortcut that opens Soul
+Burn Player Uses.
 
 Ending Soul Burn early refunds 1 Soul Burn point for each wholly unused future
 combat round. The current, partially used round is not refunded.

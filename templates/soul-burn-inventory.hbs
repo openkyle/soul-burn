@@ -6,13 +6,30 @@
         <i class="fas fa-fire-flame-curved"></i>
         Soul Burn ({{actions.length}})
       </span>
-      <span class="soul-burn-inventory-rounds">{{roundsLabel}}</span>
+      <span class="soul-burn-inventory-status">
+        {{#if showRoundsInInventoryBar}}
+        <span class="soul-burn-inventory-rounds">{{roundsLabel}}</span>
+        {{/if}}
+        {{#if showAGTInInventoryBar}}
+        <span class="soul-burn-inventory-tolerance">AGT: {{tolerance}}</span>
+        <button type="button" class="soul-burn-inventory-player-uses"
+                data-sb-player-uses title="Open Soul Burn Player Uses"
+                aria-label="Open Soul Burn Player Uses">
+          <i class="fas fa-circle-info"></i>
+        </button>
+        {{/if}}
+      </span>
     </summary>
 
     <div class="soul-burn-inventory-list">
       {{#each actions}}
         <div class="soul-burn-inventory-row item" data-item-id="{{id}}">
-          <img src="{{img}}" alt="{{name}}">
+          <button type="button" class="soul-burn-inventory-image"
+                  data-sb-item-use="{{id}}" title="Use {{name}}"
+                  aria-label="Use {{name}}">
+            <img src="{{img}}" alt="">
+            <i class="fas fa-dice-d20" aria-hidden="true"></i>
+          </button>
           <button type="button" class="soul-burn-inventory-name" data-sb-item-toggle="{{id}}"
                   aria-expanded="false" title="Show {{name}} details">
             <i class="fas fa-chevron-right soul-burn-inventory-item-chevron"></i>
@@ -23,9 +40,6 @@
           </span>
           <span class="soul-burn-inventory-activation">{{activation}}</span>
           <span class="soul-burn-inventory-controls">
-            <button type="button" data-sb-item-use="{{id}}" title="Use {{name}}">
-              <i class="fas fa-dice-d20"></i>
-            </button>
             <button type="button" data-sb-item-view="{{id}}" title="View {{name}} details">
               <i class="fas fa-circle-info"></i>
             </button>

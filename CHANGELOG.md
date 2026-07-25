@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.32
+
+- Added the optional **Escalating Constitution DC** mechanic. The first
+  lifetime Soul Burn use checks against the configured base DC, every later
+  use adds 2, and a failed escalating check automatically adds one exhaustion
+  level.
+- Added separate GM toggles for showing **AGT** and **rounds remaining** in the
+  active Soul Burn Inventory heading. Both displays default to enabled.
+- The Inventory heading now shows the compact `AGT: X` label with an
+  information shortcut to Soul Burn Player Uses.
+- Soul Burn action portraits are now the use controls. Hovering or focusing a
+  portrait replaces it with the d20 icon; the redundant right-side die button
+  was removed.
+- Tightened the active Soul Burn Inventory typography and row dimensions.
+- Corrected the player-facing action name to **Aether Surge** throughout the
+  compendium, owned temporary Items, dialogs, cards, rules, and documentation.
+
 ## 1.0.31
 
 - Added the optional GM Mechanics setting **AetherGlow Reduces Soul Burn Die**,

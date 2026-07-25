@@ -65,6 +65,18 @@ class SoulBurnSoundSettings extends FormApplication {
         "applyExhaustionOnFailedConCheck"
       ),
       endConSaveDC: game.settings.get("soul-burn", "endConSaveDC"),
+      escalatingEndConSaveDC: game.settings.get(
+        "soul-burn",
+        "escalatingEndConSaveDC"
+      ),
+      showAGTInInventoryBar: game.settings.get(
+        "soul-burn",
+        "showAGTInInventoryBar"
+      ),
+      showRoundsInInventoryBar: game.settings.get(
+        "soul-burn",
+        "showRoundsInInventoryBar"
+      ),
       autoEndOnFateShift: game.settings.get("soul-burn", "autoEndOnFateShift"),
       fateShiftTimerSeconds: game.settings.get("soul-burn", "fateShiftTimerSeconds"),
       fateShiftTimerMessage: game.settings.get("soul-burn", "fateShiftTimerMessage"),
@@ -107,6 +119,7 @@ class SoulBurnSoundSettings extends FormApplication {
     const requireCheck = html.find('[name="requireEndConSave"]');
     const applyExhaustion = html.find('[name="applyExhaustionOnFailedConCheck"]');
     const checkDC = html.find('[name="endConSaveDC"]');
+    const escalatingDC = html.find('[name="escalatingEndConSaveDC"]');
     const highStakes = html.find('[name="highStakesMode"]');
     const aetherglowReduction = html.find('[name="aetherglowReducesSoulBurnDie"]');
     const syncConstitutionSettings = () => {
@@ -116,10 +129,21 @@ class SoulBurnSoundSettings extends FormApplication {
     };
     applyExhaustion.on("change", () => {
       if (applyExhaustion.prop("checked")) requireCheck.prop("checked", true);
+      if (!applyExhaustion.prop("checked")) escalatingDC.prop("checked", false);
       syncConstitutionSettings();
     });
     requireCheck.on("change", () => {
-      if (!requireCheck.prop("checked")) applyExhaustion.prop("checked", false);
+      if (!requireCheck.prop("checked")) {
+        applyExhaustion.prop("checked", false);
+        escalatingDC.prop("checked", false);
+      }
+      syncConstitutionSettings();
+    });
+    escalatingDC.on("change", () => {
+      if (escalatingDC.prop("checked")) {
+        requireCheck.prop("checked", true);
+        applyExhaustion.prop("checked", true);
+      }
       syncConstitutionSettings();
     });
     const syncHighStakesSettings = () => {
@@ -165,8 +189,12 @@ class SoulBurnSoundSettings extends FormApplication {
       "rippleRecoverySeconds",
       Math.min(600, Math.max(1, Number(formData.rippleRecoverySeconds) || 60))
     );
-    const applyExhaustion = Boolean(formData.applyExhaustionOnFailedConCheck);
-    const requireEndConSave = Boolean(formData.requireEndConSave) || applyExhaustion;
+    const escalatingEndConSaveDC = Boolean(formData.escalatingEndConSaveDC);
+    const applyExhaustion = Boolean(formData.applyExhaustionOnFailedConCheck)
+      || escalatingEndConSaveDC;
+    const requireEndConSave = Boolean(formData.requireEndConSave)
+      || applyExhaustion
+      || escalatingEndConSaveDC;
     const aetherglowReducesSoulBurnDie = Boolean(
       formData.aetherglowReducesSoulBurnDie
     );
@@ -191,6 +219,21 @@ class SoulBurnSoundSettings extends FormApplication {
     );
     await game.settings.set(
       "soul-burn",
+      "escalatingEndConSaveDC",
+      escalatingEndConSaveDC
+    );
+    await game.settings.set(
+      "soul-burn",
+      "showAGTInInventoryBar",
+      Boolean(formData.showAGTInInventoryBar)
+    );
+    await game.settings.set(
+      "soul-burn",
+      "showRoundsInInventoryBar",
+      Boolean(formData.showRoundsInInventoryBar)
+    );
+    await game.settings.set(
+      "soul-burn",
       "autoEndOnFateShift",
       Boolean(formData.autoEndOnFateShift)
     );
@@ -208,6 +251,9 @@ class SoulBurnSoundSettings extends FormApplication {
       String(formData.fateShiftTimerMessage ?? "").trim()
         || SB.defaultFateShiftMessage
     );
+    for (const actor of game.actors.filter(actor => state(actor).active)) {
+      renderActorSheetSoon(actor);
+    }
     ui.notifications.info("Soul Burn settings saved.");
   }
 }
@@ -426,6 +472,30 @@ Hooks.once("init", () => {
     config: false,
     type: Number,
     default: 10
+  });
+  game.settings.register("soul-burn", "escalatingEndConSaveDC", {
+    name: "Escalating Constitution DC",
+    hint: "Start at the configured DC on the first lifetime Soul Burn use, then add 2 for every later use. Failed escalating checks add one exhaustion level.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+  game.settings.register("soul-burn", "showAGTInInventoryBar", {
+    name: "Show AGT in Inventory Bar",
+    hint: "Show AGT and its Player Uses information shortcut in the active Soul Burn Inventory heading.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true
+  });
+  game.settings.register("soul-burn", "showRoundsInInventoryBar", {
+    name: "Show Rounds Remaining in Inventory Bar",
+    hint: "Show remaining combat rounds or manual duration in the active Soul Burn Inventory heading.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true
   });
   game.settings.register("soul-burn", "fateShiftTimerSeconds", {
     name: "Fate Shift Countdown",
@@ -804,7 +874,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
   );
 
   if (action === "surge") {
-    data.name = "AetherSurge";
+    data.name = "Aether Surge";
     data.img = "modules/soul-burn/icons/aethersurge.png";
     data.system.actionType = "other";
     data.system.formula = `1d${largest}`;
@@ -883,11 +953,11 @@ async function ensureTemporarySoulBurnActions(actor) {
     )
     .map(item => ({
       _id: item.id,
-      name: "AetherSurge",
+      name: "Aether Surge",
       img: "modules/soul-burn/icons/aethersurge.png",
       "flags.soul-burn.action": "surge",
       "system.description.value": String(item.system.description?.value ?? "")
-        .replaceAll("AetherStrike", "AetherSurge")
+        .replaceAll("AetherStrike", "Aether Surge")
         .replaceAll('data-soul-burn-action="strike"', 'data-soul-burn-action="surge"')
     }));
   if (legacySurges.length) {
@@ -901,7 +971,7 @@ async function ensureTemporarySoulBurnActions(actor) {
     const action = normalizedSoulBurnAction(item);
     const legacySurge = action === "surge" && (
       soulBurnItemFlag(item, "action") !== "surge"
-      || item.name !== "AetherSurge"
+      || item.name !== "Aether Surge"
     );
     if (!SB.temporaryActions.includes(action) || legacySurge || keep.has(action)) {
       duplicates.push(item.id);
@@ -942,10 +1012,10 @@ async function ensureTemporarySoulBurnActions(actor) {
         sourceId: source.uuid
       };
       if (action === "surge") {
-        data.name = "AetherSurge";
+        data.name = "Aether Surge";
         data.img = "modules/soul-burn/icons/aethersurge.png";
         data.system.description.value = String(data.system.description?.value ?? "")
-          .replaceAll("AetherStrike", "AetherSurge")
+          .replaceAll("AetherStrike", "Aether Surge")
           .replaceAll('data-soul-burn-action="strike"', 'data-soul-burn-action="surge"');
       }
       return configureRegularSoulBurnItem(data, action, actor);
@@ -1842,12 +1912,12 @@ async function activate(actor, token) {
 
 async function aetherSurge(actor) {
   const current = state(actor);
-  if (!current.active) throw new Error("AetherSurge requires active Soul Burn.");
-  const die = await consumeHitDie(actor, "AetherSurge");
+  if (!current.active) throw new Error("Aether Surge requires active Soul Burn.");
+  const die = await consumeHitDie(actor, "Aether Surge");
   if (!die) return;
   const roll = await makeRoll(`1d${die.faces}`);
   const use = await choose(
-    "AetherSurge",
+    "Aether Surge",
     `<p>You rolled <strong>${roll.total}</strong>. Apply it to one roll only.</p>`,
     {
       attack: { icon: '<i class="fas fa-crosshairs"></i>', label: "Attack Roll", value: "attack roll" },
@@ -1855,7 +1925,7 @@ async function aetherSurge(actor) {
     },
     "damage"
   );
-  await chat(actor, "AetherSurge", `<p>Add <strong>+${roll.total}</strong> to the ${esc(use)} of the triggering attack.</p>`, roll);
+  await chat(actor, "Aether Surge", `<p>Add <strong>+${roll.total}</strong> to the ${esc(use)} of the triggering attack.</p>`, roll);
 }
 
 async function spendItemCharge(item, label) {
@@ -1880,6 +1950,29 @@ function remainingUnusedCombatRounds(current, combat = game.combat) {
   // The current round has already been used. Only wholly unused future rounds
   // reduce Soul Burn when the character ends the transformation early.
   return Math.max(0, endsRound - currentRound - 1);
+}
+
+function endConstitutionDC(current) {
+  const base = Math.min(
+    30,
+    Math.max(
+      1,
+      Number(game.settings.get("soul-burn", "endConSaveDC")) || 10
+    )
+  );
+  const escalating = game.settings.get(
+    "soul-burn",
+    "escalatingEndConSaveDC"
+  );
+  const additional = escalating
+    ? Math.max(0, Math.floor(Number(current.uses ?? 0)) - 1) * 2
+    : 0;
+  return {
+    base,
+    additional,
+    escalating,
+    value: base + additional
+  };
 }
 
 async function endBurn(actor, reason = "Soul Burn ends") {
@@ -1920,14 +2013,18 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   let constitutionRoll = null;
   let constitutionSummary = "";
   if (game.settings.get("soul-burn", "requireEndConSave")) {
-    const dc = Math.min(30, Math.max(1, Number(game.settings.get("soul-burn", "endConSaveDC")) || 10));
+    const dcDetails = endConstitutionDC(current);
+    const dc = dcDetails.value;
     const modifier = Number(actor.system.abilities?.con?.mod ?? 0);
     constitutionRoll = await makeRoll("1d20 + @modifier", { modifier });
     const passed = constitutionRoll.total >= dc;
     let exhaustionSummary = "";
     if (
       !passed
-      && game.settings.get("soul-burn", "applyExhaustionOnFailedConCheck")
+      && (
+        game.settings.get("soul-burn", "applyExhaustionOnFailedConCheck")
+        || dcDetails.escalating
+      )
     ) {
       const previousExhaustion = Math.min(
         6,
@@ -1941,6 +2038,9 @@ async function endBurn(actor, reason = "Soul Burn ends") {
         <p><strong>Exhaustion Applied:</strong> Level ${previousExhaustion} → ${nextExhaustion}${nextExhaustion >= 6 ? " (maximum)" : ""}</p>`;
     }
     constitutionSummary = `
+      ${dcDetails.escalating
+        ? `<p><strong>Escalating DC:</strong> ${dcDetails.base} base + ${dcDetails.additional} from ${current.uses} lifetime Soul Burn use${current.uses === 1 ? "" : "s"} = <strong>${dc}</strong></p>`
+        : ""}
       <p><strong>Constitution Check:</strong> ${constitutionRoll.total} vs DC ${dc}
       — <strong>${passed ? "Success" : "Failure"}</strong></p>
       ${exhaustionSummary}
@@ -2235,6 +2335,12 @@ async function showRules() {
   const aetherglowReductionRule = aetherglowProgressionReductionEnabled()
     ? `<p><strong>AetherGlow Reduces Soul Burn Die:</strong> Each qualifying AetherGlow exposure lowers the recipient's future High-Stakes activation progression by one die, to a minimum of one. This does not restore or remove Lifetime Uses; later Soul Burn activations continue increasing Uses normally.</p>`
     : "";
+  const escalatingConstitutionRule = game.settings.get(
+    "soul-burn",
+    "escalatingEndConSaveDC"
+  )
+    ? `<p><strong>Escalating Constitution DC:</strong> The first lifetime Soul Burn use checks against the GM's configured base DC. Each later use adds 2 to that DC. A failed escalating check adds one exhaustion level.</p>`
+    : "";
   new Dialog({
     title: "Soul Burn Rules",
     content: `<div class="soul-burn-rules">
@@ -2242,10 +2348,11 @@ async function showRules() {
       <p>Soul Burn is a Bonus Action reservoir granted by interacting with Aether. To enter Soul Burn, you must have an available Hit Die and roll it without expending it; your soul begins to burn, pushing you beyond mortal limits.</p>
       <p>If the GM enables High Stakes Mode, the first lifetime use rolls one die, the second rolls two, the third rolls three, and so on. The total increases Soul Burn, while the first die alone determines the duration in rounds.</p>
       ${aetherglowReductionRule}
+      ${escalatingConstitutionRule}
       <p>While Soul Burnin', you have double movement and one free Soul Burn action each turn.</p>
       <h2>Max Soul Burn</h2>
       <p>Your maximum Soul Burn is the total maximum of all your Hit Dice. If current Soul Burn exceeds that maximum, your soul becomes unstable and is permanently destroyed when the current burn period ends. This is Burnout.</p>
-      <h2>AetherSurge: Utilizing Hit Dice (1 Action)</h2>
+      <h2>Aether Surge: Utilizing Hit Dice (1 Action)</h2>
       <p>Once per attack after you hit, spend and roll a Hit Die. Add it to either the attack roll or the damage roll, but not both. Added damage is Radiant.</p>
       <h2>Channel Aether (1 Action or Reaction)</h2>
       <p>You may use Channel Aether a number of times equal to your proficiency bonus, regaining all uses on a short or long rest. Make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
@@ -2423,6 +2530,15 @@ function soulBurnInventoryData(actor) {
     actorId: actor.id,
     actorName: actor.name,
     isGM: game.user.isGM,
+    tolerance: current.tolerance,
+    showAGTInInventoryBar: game.settings.get(
+      "soul-burn",
+      "showAGTInInventoryBar"
+    ),
+    showRoundsInInventoryBar: game.settings.get(
+      "soul-burn",
+      "showRoundsInInventoryBar"
+    ),
     actions,
     roundsLabel: current.combatId && current.endsRound !== null && game.combat?.id === current.combatId
       ? `${Math.max(0, Number(current.endsRound) - Number(game.combat.round ?? 0))} rounds remain`
@@ -2457,6 +2573,13 @@ function bindTidySoulBurnInventory(section, actor) {
       event.stopPropagation();
       const item = actor.items.get(event.currentTarget.dataset.sbItemUse);
       if (item) await item.use();
+    });
+  }
+  for (const control of section.querySelectorAll("[data-sb-player-uses]")) {
+    control.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      showPlayerUses(actor);
     });
   }
   for (const control of section.querySelectorAll("[data-sb-item-toggle]")) {
@@ -2637,7 +2760,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.31"
+    version: "1.0.32"
   });
 
   await cleanLegacyCompendiumIndex();
