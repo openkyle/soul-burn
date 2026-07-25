@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.12
+
+- Rewrote the Give Aetherglow recipient note into a shorter, clearer
+  explanation of recipient ordering, the minimum-1 AGT roll, Soul Burn
+  recovery, healing, and exposure.
+
 ## 1.0.11
 
 - Added a **Scene NPCs** group beneath **Player Characters** in the Give
