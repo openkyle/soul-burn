@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.28
+
+- Updated the managed Exit Soul Burn Item with the complete immediate
+  resolution and early-combat-exit rule.
+- Codified the early-exit calculation as wholly unused future rounds in the
+  same tracked combat. The current round does not count, and no reduction
+  occurs outside that combat.
+- The calculated reduction is applied directly to the character's Soul Burn
+  resource before the ending chat report, clamped so it cannot fall below zero.
+
 ## 1.0.27
 
 - Restored the original live backdrop-filter black-and-white ripple.

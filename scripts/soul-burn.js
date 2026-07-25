@@ -742,7 +742,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
     data.img = "modules/soul-burn/icons/soul-burn.png";
     data.system.description ??= {};
     data.system.description.value =
-      "<p>End your active Soul Burn. The normal ending workflow resolves immediately, including Burnout and configured end checks.</p>";
+      "<p>End your active Soul Burn. You return to your normal state. Soul Burn resolves immediately, including Burnout and appropriate DC checks.</p><p>If you are in combat and end your Soul Burn early, your Soul Burn is reduced by the number of rounds remaining in your duration.</p>";
     data.system.activation = { type: "bonus", cost: 1, condition: "" };
     data.system.target = { value: null, width: null, units: "", type: "self" };
     data.system.range = { value: null, long: null, units: "self" };
@@ -1668,19 +1668,32 @@ async function channelAether(actor, { item = null, chargeAlreadySpent = false } 
   return true;
 }
 
+function remainingUnusedCombatRounds(current, combat = game.combat) {
+  if (
+    !current.combatId
+    || !combat
+    || combat.id !== current.combatId
+    || current.endsRound === null
+  ) return 0;
+
+  const currentRound = Number(combat.round ?? 0);
+  const endsRound = Number(current.endsRound);
+  if (!Number.isFinite(currentRound) || !Number.isFinite(endsRound)) return 0;
+
+  // The current round has already been used. Only wholly unused future rounds
+  // reduce Soul Burn when the character ends the transformation early.
+  return Math.max(0, endsRound - currentRound - 1);
+}
+
 async function endBurn(actor, reason = "Soul Burn ends") {
   const current = state(actor);
   if (!current.active) return;
 
   const activeCombat = game.combat;
-  const currentRound = Number(activeCombat?.round ?? 0);
-  const unusedRounds = current.combatId
-    && activeCombat?.id === current.combatId
-    && current.endsRound !== null
-    && currentRound < Number(current.endsRound)
-    ? Math.max(0, Number(current.endsRound) - currentRound - 1)
-    : 0;
-  const burnRefund = Math.min(current.burn, unusedRounds);
+  const unusedRounds = remainingUnusedCombatRounds(current, activeCombat);
+  const currentBurn = Math.max(0, Number(current.burn) || 0);
+  const burnRefund = Math.min(currentBurn, unusedRounds);
+  const nextBurn = Math.max(0, currentBurn - burnRefund);
 
   const endSound = soundPath("endSound");
   if (endSound) {
@@ -1695,7 +1708,7 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   await removeTemporarySoulBurnActions(actor);
   await saveState(actor, {
     ...current,
-    burn: current.burn - burnRefund,
+    burn: nextBurn,
     active: false,
     combatId: null,
     startedRound: null,
@@ -1743,7 +1756,7 @@ async function endBurn(actor, reason = "Soul Burn ends") {
     ? `<p><strong>Tracked Period:</strong> Round ${current.startedRound} through the end of round ${Number(current.endsRound) - 1}.</p>`
     : "";
   const refundSummary = burnRefund > 0
-    ? `<p><strong>Early Exit:</strong> ${unusedRounds} unused round${unusedRounds === 1 ? "" : "s"} removed <strong>${burnRefund} Soul Burn</strong> (${current.burn} → ${current.burn - burnRefund}).</p>`
+    ? `<p><strong>Early Exit:</strong> ${unusedRounds} remaining unused combat round${unusedRounds === 1 ? "" : "s"} removed <strong>${burnRefund} Soul Burn</strong> (${currentBurn} → ${nextBurn}).</p>`
     : "";
   const restoredMovement = movementSpeeds(actor);
   const movementRestoredSummary = `
@@ -2347,7 +2360,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.27"
+    version: "1.0.28"
   });
 
   await cleanLegacyCompendiumIndex();

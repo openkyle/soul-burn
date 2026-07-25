@@ -94,6 +94,14 @@ GMs can still edit it. While active, its sheet name and chat-card control become
 **Exit Soul Burn**. Both return to **Soul Burn** / **Enter Soul Burn** when the
 transformation ends.
 
+**Exit Soul Burn** immediately resolves the normal end workflow, including
+Burnout and any configured Constitution check. If the character exits during
+the same combat in which the burn began, each wholly unused future round in
+the duration removes 1 point from the character's Soul Burn resource. The
+current round is already in use and is not counted. The reduction is clamped
+at zero. Ending Soul Burn outside combat—or after its tracked combat is no
+longer active—does not reduce the resource.
+
 ### Fate Shift
 
 Fate Shift is used as a normal dnd5e Item. Its description provides the
