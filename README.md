@@ -36,7 +36,9 @@ calculates and fills it from the character's classes.
 
 If current Soul Burn exceeds that maximum, Burnout is marked as pending. The
 soul is destroyed at the end of the current burn period. For safety, the macro
-announces this result but never deletes the Actor.
+announces this result but never deletes the Actor. The final chat card is titled
+with the character's name and selects one of ten character-specific Burnout
+finales at random.
 
 ### AetherSurge
 

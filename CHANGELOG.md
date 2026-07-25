@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.14
+
+- Clicking the owned Soul Burn feature now opens the module dashboard directly
+  without first posting the ordinary dnd5e Item chat card.
+- Successful activation posts one button-free Soul Burn result card containing
+  the Hit Die roll, duration, Soul Burn total, movement, and combat-round
+  tracking.
+- Added ten randomized Burnout finale narratives. Burnout cards now use the
+  character's name in both the title and narrative instead of the generic
+  exceeded-maximum message.
+- Added compatibility with the supplied Foundry 11 Tidy5e fork by preserving
+  each character's selected tab order and adding the native Soul Burn tab
+  immediately after Actions.
+
 ## 1.0.13
 
 - Replaced the Give Aetherglow help text with the campaign wording supplied by

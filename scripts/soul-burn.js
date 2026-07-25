@@ -683,6 +683,53 @@ function highStakesDiceCount(current) {
     : 1;
 }
 
+function burnoutFinale(actor) {
+  const name = esc(actor.name);
+  const finales = [
+    {
+      style: "Absolute",
+      text: `Burnout is now absolute. ${name}'s soul is permanently destroyed, beyond resurrection or recovery. ${name} may speak a final farewell as ${name}'s body begins to smolder before collapsing into ash.`
+    },
+    {
+      style: "Cold and Clinical",
+      text: `The Burnout condition is resolved. ${name}'s soul is permanently annihilated. ${name}'s body rapidly destabilizes, heating from within before disintegrating into fine ash. ${name} may utter a final sentence before being gone forever.`
+    },
+    {
+      style: "Haunting",
+      text: `The last ember fades. ${name}'s soul is extinguished forever, leaving behind only an empty shell. ${name} has but a moment to say goodbye before ${name}'s body quietly burns away on an unseen flame.`
+    },
+    {
+      style: "Cosmic Horror",
+      text: `Burnout reaches its inevitable conclusion. ${name}'s soul is consumed entirely, leaving no spirit to pass on, no echo to remember. ${name}'s body begins to simmer, unraveling into drifting cinders as reality forgets ${name} ever existed.`
+    },
+    {
+      style: "Fantasy Epic",
+      text: `The flames claim their final due. ${name}'s soul is forever lost, unable to return to the cycle of life or death. ${name} may offer final words before ${name}'s body is reduced to glowing embers carried away by the wind.`
+    },
+    {
+      style: "Bleak",
+      text: `There is nothing left to save. Burnout permanently destroys ${name}'s soul. ${name}'s body grows unnaturally hot, fractures apart, and scatters into ash. This is the end of ${name}.`
+    },
+    {
+      style: "Poetic",
+      text: `The fire within ${name} burns one final time. Soul and self dissolve together, leaving neither memory nor afterlife. As warmth escapes ${name}'s fading form, ${name} may whisper one last goodbye before becoming dust.`
+    },
+    {
+      style: "Violent",
+      text: `Burnout detonates from within ${name}. ${name}'s soul is obliterated in an instant, while ${name}'s body seethes with unbearable heat before erupting into a cloud of blackened ash. ${name} has only seconds to speak final words.`
+    },
+    {
+      style: "Quiet and Tragic",
+      text: `The end comes gently. ${name}'s soul slips into oblivion, erased forever. ${name} may share a final farewell as ${name}'s body slowly steams, softens, and drifts apart like cooling embers in the breeze.`
+    },
+    {
+      style: "Rulebook Style",
+      text: `When Burnout resolves, ${name} immediately dies. ${name}'s soul is permanently destroyed and cannot be restored by any ability, spell, or divine intervention. Before ${name}'s body smolders into ash and disperses, ${name} may deliver one final statement.`
+    }
+  ];
+  return finales[Math.floor(Math.random() * finales.length)];
+}
+
 function burnoutChance(faces, remaining, count = 1) {
   faces = Math.max(1, Number(faces) || 1);
   count = Math.max(1, Number(count) || 1);
@@ -927,6 +974,7 @@ async function activate(actor, token) {
   await applyMovement(actor);
   await playAnimation(token, next);
   await saveState(actor, next);
+  await ensureTidySoulBurnTabSelected(actor);
   await syncSoulBurnFeature(actor, true);
   renderActorSheetSoon(actor);
   await chat(
@@ -1049,11 +1097,12 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   const restoredMovement = movementSpeeds(actor);
   const movementRestoredSummary = `
     <p><strong>Movement Restored:</strong> ${esc(movementSummary(restoredMovement))}</p>`;
+  const finale = current.burnout ? burnoutFinale(actor) : null;
   await chat(
     actor,
-    reason,
-    `${durationSummary}${movementRestoredSummary}${current.burnout
-      ? `<p><strong>${esc(actor.name)} exceeded their maximum Soul Burn.</strong> Burnout resolves now: their soul is permanently destroyed. The macro records this but does not delete the Actor.</p>`
+    finale ? `${actor.name} — Burnout` : reason,
+    `${durationSummary}${movementRestoredSummary}${finale
+      ? `<p><strong>${esc(finale.style)}</strong></p><p>${finale.text}</p>`
       : `<p>${esc(actor.name)} transforms back and is no longer Soul Burning.</p>`}
      ${constitutionSummary}`,
     constitutionRoll
@@ -1415,6 +1464,60 @@ async function openSoulBurn({ actor = null, token = null } = {}) {
   }
 }
 
+function soulBurnTabData(actor) {
+  const current = state(actor);
+  const actions = ownedSoulBurnActionItems(actor)
+    .sort((a, b) =>
+      SB.temporaryActions.indexOf(normalizedSoulBurnAction(a))
+      - SB.temporaryActions.indexOf(normalizedSoulBurnAction(b))
+    )
+    .map(item => {
+      const uses = item.system.uses ?? {};
+      return {
+        id: item.id,
+        action: normalizedSoulBurnAction(item),
+        name: item.name,
+        img: item.img,
+        activation: item.system.activation?.type
+          ? CONFIG.DND5E.activationTypes?.[item.system.activation.type]?.label
+            ?? item.system.activation.type
+          : "",
+        hasUses: Number(uses.max ?? 0) > 0,
+        uses: Number(uses.value ?? 0),
+        maxUses: Number(uses.max ?? 0)
+      };
+    });
+  return {
+    actorName: actor.name,
+    actions,
+    tracked: Boolean(current.combatId && current.startedRound !== null),
+    startedRound: current.startedRound,
+    lastRound: current.endsRound === null ? null : Number(current.endsRound) - 1
+  };
+}
+
+async function ensureTidySoulBurnTabSelected(actor) {
+  if (!game.modules.get("tidy5e-sheet")?.active || actor?.type !== "character") return;
+
+  let selected = actor.getFlag("tidy5e-sheet", "selected-tabs");
+  if (!Array.isArray(selected) || !selected.length) {
+    try {
+      selected = game.settings.get("tidy5e-sheet", "defaultCharacterSheetTabs");
+    } catch (_error) {
+      selected = [
+        "actions", "attributes", "inventory", "spellbook",
+        "features", "effects", "biography", "journal"
+      ];
+    }
+  }
+  selected = [...selected];
+  if (selected.includes("soul-burn-actions")) return;
+
+  const actionsIndex = selected.findIndex(id => id === "actions");
+  selected.splice(actionsIndex >= 0 ? actionsIndex + 1 : 0, 0, "soul-burn-actions");
+  await actor.setFlag("tidy5e-sheet", "selected-tabs", selected);
+}
+
 Hooks.once("tidy5e-sheet.ready", api => {
   api.registerCharacterTab(
     new api.models.HandlebarsTab({
@@ -1425,44 +1528,13 @@ Hooks.once("tidy5e-sheet.ready", api => {
       enabled: context =>
         context.actor?.type === "character"
         && state(context.actor).active,
-      getData: async data => {
-        const actor = data.actor;
-        const current = state(actor);
-        const actions = ownedSoulBurnActionItems(actor)
-          .sort((a, b) =>
-            SB.temporaryActions.indexOf(normalizedSoulBurnAction(a))
-            - SB.temporaryActions.indexOf(normalizedSoulBurnAction(b))
-          )
-          .map(item => {
-            const uses = item.system.uses ?? {};
-            return {
-              id: item.id,
-              action: normalizedSoulBurnAction(item),
-              name: item.name,
-              img: item.img,
-              activation: item.system.activation?.type
-                ? CONFIG.DND5E.activationTypes?.[item.system.activation.type]?.label
-                  ?? item.system.activation.type
-                : "",
-              hasUses: Number(uses.max ?? 0) > 0,
-              uses: Number(uses.value ?? 0),
-              maxUses: Number(uses.max ?? 0)
-            };
-          });
-        return {
-          actorName: actor.name,
-          actions,
-          tracked: Boolean(current.combatId && current.startedRound !== null),
-          startedRound: current.startedRound,
-          lastRound: current.endsRound === null ? null : Number(current.endsRound) - 1
-        };
-      }
+      getData: async data => soulBurnTabData(data.actor)
     }),
-    { layout: "all" }
+    { layout: "all", includeAsDefaultTab: true }
   );
 });
 
-Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
+Hooks.on("tidy5e-sheet.renderActorSheet", async (app, element) => {
   const actor = app.actor;
   if (!actor || actor.type !== "character") return;
   const root = element instanceof HTMLElement ? element : element?.[0];
@@ -1509,7 +1581,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.13"
+    version: "1.0.14"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -1552,7 +1624,10 @@ Hooks.once("ready", async () => {
   for (const actor of game.actors.filter(a => a.type === "character")) {
     const hasSoulBurn = actor.items.some(item => item.getFlag("soul-burn", "action") === "activate");
     if (hasSoulBurn) await initializeSoulBurnResource(actor);
-    if (state(actor).active) await ensureTemporarySoulBurnActions(actor);
+    if (state(actor).active) {
+      await ensureTemporarySoulBurnActions(actor);
+      await ensureTidySoulBurnTabSelected(actor);
+    }
     else await removeTemporarySoulBurnActions(actor);
     if (hasSoulBurn) await syncSoulBurnFeature(actor, state(actor).active);
   }
@@ -1592,6 +1667,27 @@ Hooks.on("renderChatMessage", (message, html) => {
       .html(`<i class="fas fa-check"></i> ${label}`);
   }
 });
+
+// Using the Soul Burn feature opens the dashboard directly and suppresses
+// dnd5e's ordinary Item chat card. The Item hook supports dnd5e 2.4.1 and the
+// Activity hook supports newer releases.
+const soulBurnUseDebounce = new Map();
+
+function interceptSoulBurnUse(document) {
+  const item = document?.documentName === "Item" ? document : document?.item;
+  if (item?.getFlag(SB.scope, "action") !== "activate" || !item.parent) return true;
+
+  const key = item.uuid;
+  const now = Date.now();
+  if ((soulBurnUseDebounce.get(key) ?? 0) + 250 < now) {
+    soulBurnUseDebounce.set(key, now);
+    setTimeout(() => openSoulBurn({ actor: item.parent }), 0);
+  }
+  return false;
+}
+
+Hooks.on("dnd5e.preUseItem", item => interceptSoulBurnUse(item));
+Hooks.on("dnd5e.preUseActivity", activity => interceptSoulBurnUse(activity));
 
 Hooks.on("createItem", async (item, _options, userId) => {
   if (userId !== game.user.id) return;
