@@ -33,6 +33,9 @@
       {{#if active}}<strong>Active</strong>{{else}}Inactive{{/if}}
       {{#if combatTracking}}<small>{{combatTracking}}</small>{{/if}}
       {{#if burnout}}<strong class="soul-burn-danger">Burnout</strong>{{/if}}
+      {{#if ../showAetherglowDieReduction}}
+      <small>AetherGlow die reduction: {{aetherglowDieReduction}}</small>
+      {{/if}}
     </span>
     <span class="soul-burn-player-controls">
       <button type="button" data-clear-player="{{id}}" title="Clear AGT and remove the Soul Burn resource">

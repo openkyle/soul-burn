@@ -143,6 +143,14 @@ Soul Burn. The chat card shows the clamped formula, result, actual Soul Burn
 cleared, resource values, and AGT change. There is no “AetherGlow Blocked”
 value.
 
+The optional High-Stakes setting **AetherGlow Reduces Soul Burn Die** is
+disabled by default. When enabled, each AetherGlow exposure received by a
+Soul Burn character lowers their future Uses-based activation progression by
+one die, to a minimum of one. This is stored independently from Lifetime Uses:
+AetherGlow never restores or removes a Use, and each later Soul Burn activation
+still increases Uses normally. For example, after three activations the next
+roll would normally be four dice; one reduction step makes it three dice.
+
 ## Compatibility and requirements
 
 - Primary baseline: **Foundry VTT 11 Stable, build 315**
@@ -252,14 +260,17 @@ excluded.
 - The amulet removes charmed, poisoned, petrified, temporary ability-score
   reductions, and temporary maximum-HP reductions.
 - Every exposure raises AGT by 1, to a maximum of 19.
+- When the optional High-Stakes AetherGlow reduction setting is enabled, every
+  qualifying exposure also lowers the recipient's future activation
+  progression by one die without changing Lifetime Uses.
 - If a player gives it to an Actor they do not own, an active GM securely
   performs the document update.
 - Direct activation spends a charge. A normal dnd5e item use spends its charge
   when it posts the card, and that chat-card button is locked after resolution.
-- The actionable AetherGlow and Channel Aether chat-card buttons are generated
-  from module Item flags, not stored in editable rich-text descriptions.
-  Descriptions may therefore be edited without turning those controls into
-  text or removing their behavior.
+- The actionable AetherGlow chat-card button is generated from module Item
+  flags, not stored in editable rich-text descriptions. Its description may
+  therefore be edited without turning that control into text or removing its
+  behavior.
 
 ### GM player management
 
@@ -318,6 +329,16 @@ only the first die determines the combat duration. Entry still requires an
 available Hit Die without expending it. The dashboard and confirmation show
 the multi-die formula and its exact Burnout odds.
 
+The dependent **AetherGlow Reduces Soul Burn Die** setting creates a persistent
+push-and-pull against that progression. Its effective formula is:
+
+```text
+next dice = max(1, Lifetime Uses + 1 - AetherGlow reduction steps)
+```
+
+The reduction counter is separate from Lifetime Uses. Consuming AetherGlow
+does not alter Uses; later Soul Burn activations still increment Uses normally.
+
 Ending Soul Burn early refunds 1 Soul Burn point for each wholly unused future
 combat round. The current, partially used round is not refunded.
 
@@ -358,6 +379,7 @@ avoids journal permission failures and character-name parsing bugs.
 Stored metadata includes:
 
 - Total lifetime uses
+- High-Stakes AetherGlow die-reduction steps
 - AGT
 - Active/inactive state
 - Pending Burnout

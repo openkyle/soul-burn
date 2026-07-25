@@ -55,6 +55,10 @@ class SoulBurnSoundSettings extends FormApplication {
       rippleDelaySeconds: game.settings.get("soul-burn", "rippleDelaySeconds"),
       rippleRecoverySeconds: game.settings.get("soul-burn", "rippleRecoverySeconds"),
       highStakesMode: game.settings.get("soul-burn", "highStakesMode"),
+      aetherglowReducesSoulBurnDie: game.settings.get(
+        "soul-burn",
+        "aetherglowReducesSoulBurnDie"
+      ),
       requireEndConSave: game.settings.get("soul-burn", "requireEndConSave"),
       applyExhaustionOnFailedConCheck: game.settings.get(
         "soul-burn",
@@ -103,6 +107,8 @@ class SoulBurnSoundSettings extends FormApplication {
     const requireCheck = html.find('[name="requireEndConSave"]');
     const applyExhaustion = html.find('[name="applyExhaustionOnFailedConCheck"]');
     const checkDC = html.find('[name="endConSaveDC"]');
+    const highStakes = html.find('[name="highStakesMode"]');
+    const aetherglowReduction = html.find('[name="aetherglowReducesSoulBurnDie"]');
     const syncConstitutionSettings = () => {
       const enabled = requireCheck.prop("checked");
       checkDC.prop("disabled", !enabled);
@@ -116,7 +122,23 @@ class SoulBurnSoundSettings extends FormApplication {
       if (!requireCheck.prop("checked")) applyExhaustion.prop("checked", false);
       syncConstitutionSettings();
     });
+    const syncHighStakesSettings = () => {
+      const enabled = highStakes.prop("checked");
+      aetherglowReduction.prop("disabled", !enabled);
+      aetherglowReduction
+        .closest(".form-group")
+        .toggleClass("soul-burn-setting-disabled", !enabled);
+    };
+    aetherglowReduction.on("change", () => {
+      if (aetherglowReduction.prop("checked")) highStakes.prop("checked", true);
+      syncHighStakesSettings();
+    });
+    highStakes.on("change", () => {
+      if (!highStakes.prop("checked")) aetherglowReduction.prop("checked", false);
+      syncHighStakesSettings();
+    });
     syncConstitutionSettings();
+    syncHighStakesSettings();
   }
 
   async _updateObject(_event, formData) {
@@ -145,7 +167,17 @@ class SoulBurnSoundSettings extends FormApplication {
     );
     const applyExhaustion = Boolean(formData.applyExhaustionOnFailedConCheck);
     const requireEndConSave = Boolean(formData.requireEndConSave) || applyExhaustion;
-    await game.settings.set("soul-burn", "highStakesMode", Boolean(formData.highStakesMode));
+    const aetherglowReducesSoulBurnDie = Boolean(
+      formData.aetherglowReducesSoulBurnDie
+    );
+    const highStakesMode = Boolean(formData.highStakesMode)
+      || aetherglowReducesSoulBurnDie;
+    await game.settings.set("soul-burn", "highStakesMode", highStakesMode);
+    await game.settings.set(
+      "soul-burn",
+      "aetherglowReducesSoulBurnDie",
+      aetherglowReducesSoulBurnDie
+    );
     await game.settings.set("soul-burn", "requireEndConSave", requireEndConSave);
     await game.settings.set(
       "soul-burn",
@@ -205,6 +237,7 @@ class SoulBurnPlayerManager extends FormApplication {
           burn: current.burn,
           max: maximumBurn(actor),
           uses: current.uses,
+          aetherglowDieReduction: current.aetherglowDieReduction,
           tolerance: current.tolerance,
           active: current.active,
           burnout: current.burnout,
@@ -215,7 +248,10 @@ class SoulBurnPlayerManager extends FormApplication {
             : ""
         };
       });
-    return { actors };
+    return {
+      actors,
+      showAetherglowDieReduction: aetherglowProgressionReductionEnabled()
+    };
   }
 
   activateListeners(html) {
@@ -370,6 +406,14 @@ Hooks.once("init", () => {
   game.settings.register("soul-burn", "highStakesMode", {
     name: "High Stakes Mode",
     hint: "Each lifetime Soul Burn use adds another Hit Die to the next activation roll.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+  game.settings.register("soul-burn", "aetherglowReducesSoulBurnDie", {
+    name: "AetherGlow Reduces Soul Burn Die",
+    hint: "In High-Stakes Mode, each qualifying AetherGlow exposure lowers the recipient's future Uses-based activation progression by one die, to a minimum of one. Lifetime Uses are unchanged.",
     scope: "world",
     config: false,
     type: Boolean,
@@ -580,6 +624,10 @@ function state(actor) {
       ? Number(actor.system.resources?.tertiary?.value ?? 0)
       : 0,
     uses: Number(saved.uses ?? 0),
+    aetherglowDieReduction: Math.max(
+      0,
+      Math.floor(Number(saved.aetherglowDieReduction ?? 0))
+    ),
     tolerance: Math.min(19, Number(saved.tolerance ?? 0)),
     active: Boolean(saved.active),
     burnout: Boolean(saved.burnout),
@@ -1129,10 +1177,31 @@ async function chat(actor, title, body, roll = null) {
   });
 }
 
-function highStakesDiceCount(current) {
+function aetherglowProgressionReductionEnabled() {
   return game.settings.get("soul-burn", "highStakesMode")
-    ? Math.max(1, Math.floor(Number(current.uses ?? 0)) + 1)
-    : 1;
+    && game.settings.get("soul-burn", "aetherglowReducesSoulBurnDie");
+}
+
+function highStakesProgression(current) {
+  if (!game.settings.get("soul-burn", "highStakesMode")) {
+    return { normal: 1, reduction: 0, dice: 1 };
+  }
+  const normal = Math.max(1, Math.floor(Number(current.uses ?? 0)) + 1);
+  const reduction = aetherglowProgressionReductionEnabled()
+    ? Math.min(
+      normal - 1,
+      Math.max(0, Math.floor(Number(current.aetherglowDieReduction ?? 0)))
+    )
+    : 0;
+  return {
+    normal,
+    reduction,
+    dice: Math.max(1, normal - reduction)
+  };
+}
+
+function highStakesDiceCount(current) {
+  return highStakesProgression(current).dice;
 }
 
 function burnoutFinale(actor) {
@@ -1686,13 +1755,20 @@ async function activate(actor, token) {
   })();
   if (!chosen) return;
 
-  const diceCount = highStakesDiceCount(current);
+  const progression = highStakesProgression(current);
+  const diceCount = progression.dice;
   const activationFormula = `${diceCount}d${chosen.faces}`;
+  const progressionAdjustment = aetherglowProgressionReductionEnabled()
+    ? `<p><strong>AetherGlow Die Reduction:</strong> ${progression.reduction} step${progression.reduction === 1 ? "" : "s"}.
+       Normal Uses-based progression: ${progression.normal} dice; adjusted roll: <strong>${progression.dice} dice</strong>.
+       Lifetime Uses will still increase normally.</p>`
+    : "";
   const chance = burnoutChance(chosen.faces, max - current.burn, diceCount);
   const confirmed = await choose(
     "Confirm Soul Burn",
     `<p><strong>${esc(actor.name)}</strong> has ${current.burn} / ${max} Soul Burn.</p>
-     <p>Roll: <strong>${activationFormula}</strong>${diceCount > 1 ? " (High Stakes Mode)" : ""}. Chance to exceed the maximum: <strong>${chance}%</strong>.</p>`,
+     <p>Roll: <strong>${activationFormula}</strong>${diceCount > 1 ? " (High Stakes Mode)" : ""}. Chance to exceed the maximum: <strong>${chance}%</strong>.</p>
+     ${progressionAdjustment}`,
     {
       burn: { icon: '<i class="fas fa-fire"></i>', label: `Roll ${activationFormula}`, value: true },
       cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: false }
@@ -1753,6 +1829,7 @@ async function activate(actor, token) {
     "Soul Burn",
     `<p><strong>${esc(actor.name)}</strong> gains double movement and one Soul Burn action each turn for <strong>${durationRounds}</strong> rounds.</p>
      <p><strong>Soul Burn Roll:</strong> ${activationFormula} = ${roll.total}${diceCount > 1 ? " — High Stakes Mode" : ""}</p>
+     ${progressionAdjustment}
      ${diceCount > 1 ? `<p><strong>Duration Die:</strong> The first d${chosen.faces} rolled ${durationRounds}; only that die determines the duration.</p>` : ""}
      <p>Soul Burn: <strong>${next.burn} / ${max}</strong>${next.burnout ? " — <strong>Burnout pending</strong>" : ""}</p>
      <p><strong>Movement:</strong> ${esc(movementSummary(baseMovement))} → <strong>${esc(movementSummary(baseMovement, 2))}</strong></p>
@@ -1986,11 +2063,38 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
 
   const recovery = roll.total;
   const removed = Math.min(current.burn, recovery);
+  const progressionReductionEnabled = aetherglowProgressionReductionEnabled();
+  const storedDieReduction = Math.max(
+    0,
+    Math.floor(Number(current.aetherglowDieReduction ?? 0))
+  );
+  const previousDieReduction = Math.min(
+    Math.max(0, Math.floor(Number(current.uses ?? 0))),
+    storedDieReduction
+  );
+  const nextDieReduction = progressionReductionEnabled
+    ? Math.min(
+      Math.max(0, Math.floor(Number(current.uses ?? 0))),
+      previousDieReduction + 1
+    )
+    : storedDieReduction;
   const next = {
     ...current,
     burn: Math.max(0, current.burn - removed),
-    tolerance: nextTolerance
+    tolerance: nextTolerance,
+    aetherglowDieReduction: nextDieReduction
   };
+  const previousProgression = highStakesProgression(current);
+  const nextProgression = highStakesProgression(next);
+  const progressionSummary = progressionReductionEnabled
+    ? nextDieReduction > previousDieReduction
+      ? `<p><strong>High-Stakes Die Reduction:</strong> ${previousDieReduction} → ${nextDieReduction}</p>
+         <p><strong>Next Soul Burn Roll:</strong> ${previousProgression.dice} dice → ${nextProgression.dice} dice
+         (normal Uses-based progression: ${nextProgression.normal} dice)</p>
+         <p><strong>Lifetime Uses:</strong> ${current.uses} (unchanged; later Soul Burn activations continue increasing Uses normally)</p>`
+      : `<p><strong>High-Stakes Die Reduction:</strong> No further reduction—the next Soul Burn roll is already at the minimum of 1 die.</p>
+         <p><strong>Lifetime Uses:</strong> ${current.uses} (unchanged)</p>`
+    : "";
   await saveState(targetActor, next);
   await chat(
     sourceActor,
@@ -2001,6 +2105,7 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
      <p><strong>Soul Burn Cleared:</strong> ${removed}</p>
      <p><strong>Soul Burn:</strong> ${current.burn} → ${next.burn}</p>
      <p><strong>AGT:</strong> ${current.tolerance} → ${next.tolerance}</p>
+     ${progressionSummary}
      <p><em>${removed > 0
        ? toleranceLine(next.tolerance)
        : current.burn > 0
@@ -2059,7 +2164,9 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
     "Give AetherGlow",
     `<p>Who receives this AetherGlow charge?</p>
      <div class="form-group"><label>Recipient</label><select name="targetActor">${groups}</select></div>
-     <p class="notes">AetherGlow always restores HP. If the recipient has Soul Burn, it also reduces Soul Burn. Both effects are reduced by AG Tolerance, and each exposure increases tolerance by 1 up to a maximum of 19.</p>`,
+     <p class="notes">AetherGlow always restores HP. If the recipient has Soul Burn, it also reduces Soul Burn. Both effects are reduced by AG Tolerance, and each exposure increases tolerance by 1 up to a maximum of 19.${aetherglowProgressionReductionEnabled()
+       ? " In High-Stakes Mode, it also lowers the recipient's future Soul Burn die progression by one step without changing Lifetime Uses."
+       : ""}</p>`,
     {
       give: {
         icon: '<i class="fas fa-flask"></i>',
@@ -2125,12 +2232,16 @@ async function runSoulBurnAction(action, {
 }
 
 async function showRules() {
+  const aetherglowReductionRule = aetherglowProgressionReductionEnabled()
+    ? `<p><strong>AetherGlow Reduces Soul Burn Die:</strong> Each qualifying AetherGlow exposure lowers the recipient's future High-Stakes activation progression by one die, to a minimum of one. This does not restore or remove Lifetime Uses; later Soul Burn activations continue increasing Uses normally.</p>`
+    : "";
   new Dialog({
     title: "Soul Burn Rules",
     content: `<div class="soul-burn-rules">
       <h2>What is Soul Burn?</h2>
       <p>Soul Burn is a Bonus Action reservoir granted by interacting with Aether. To enter Soul Burn, you must have an available Hit Die and roll it without expending it; your soul begins to burn, pushing you beyond mortal limits.</p>
       <p>If the GM enables High Stakes Mode, the first lifetime use rolls one die, the second rolls two, the third rolls three, and so on. The total increases Soul Burn, while the first die alone determines the duration in rounds.</p>
+      ${aetherglowReductionRule}
       <p>While Soul Burnin', you have double movement and one free Soul Burn action each turn.</p>
       <h2>Max Soul Burn</h2>
       <p>Your maximum Soul Burn is the total maximum of all your Hit Dice. If current Soul Burn exceeds that maximum, your soul becomes unstable and is permanently destroyed when the current burn period ends. This is Burnout.</p>
@@ -2143,17 +2254,20 @@ async function showRules() {
     </div>`,
     buttons: { close: { icon: '<i class="fas fa-times"></i>', label: "Close" } },
     default: "close",
-    options: { width: 600 }
+    options: { width: 680 }
   }).render(true);
 }
 
 async function showPlayerUses(activeActor) {
+  const showDieReduction = aetherglowProgressionReductionEnabled();
   const entries = game.actors
     .filter(a => a.type === "character" && (a.hasPlayerOwner || a.id === activeActor.id))
     .map(a => {
       const s = state(a);
       return `<div style="margin-bottom:12px">
-        <p style="margin:0"><strong>${esc(cleanName(a.name))}:</strong> Uses ${s.uses} | <strong>AGT:</strong> 1d20-${s.tolerance}</p>
+        <p style="margin:0"><strong>${esc(cleanName(a.name))}:</strong> Uses ${s.uses} | <strong>AGT:</strong> 1d20-${s.tolerance}${showDieReduction
+          ? ` | <strong>AetherGlow Die Reduction:</strong> ${highStakesProgression(s).reduction}`
+          : ""}</p>
         <p style="margin:2px 0 0"><em>${toleranceLine(s.tolerance)}</em></p>
       </div>`;
     }).join("");
@@ -2178,7 +2292,13 @@ async function dashboard(actor, token) {
     : 0;
   const dice = classData(actor);
   const primary = dice[0];
-  const nextDiceCount = highStakesDiceCount(current);
+  const highStakes = highStakesProgression(current);
+  const nextDiceCount = highStakes.dice;
+  const aetherglowProgressionSummary = aetherglowProgressionReductionEnabled()
+    ? `<p><strong>AetherGlow Die Reduction:</strong> ${highStakes.reduction} step${highStakes.reduction === 1 ? "" : "s"} |
+       Normal Uses progression: ${highStakes.normal} dice |
+       Adjusted next roll: <strong>${highStakes.dice} dice</strong></p>`
+    : "";
   const diceText = dice.length
     ? dice.map(c => `${esc(c.item.name)}: ${c.remaining}/${c.levels}d${c.faces}`).join("<br>")
     : "No class Hit Dice found";
@@ -2213,6 +2333,7 @@ async function dashboard(actor, token) {
         <p><strong>${esc(cleanName(actor.name))}</strong></p>
         <p>Next Soul Burn Roll: ${primary ? `${nextDiceCount}d${primary.faces}` : "—"}${nextDiceCount > 1 ? " <strong>(High Stakes)</strong>" : ""}</p>
         <p>Soul Burn: <strong>${current.burn} / ${max}</strong> | Uses: ${current.uses} | Burnout Odds: <strong>${primary ? burnoutChance(primary.faces, max - current.burn, nextDiceCount) : 0}%</strong></p>
+        ${aetherglowProgressionSummary}
         <div class="soul-burn-progress" role="progressbar" aria-label="Soul Burn accumulation" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${current.burn}" title="${current.burn} / ${max} Soul Burn">
           <span style="width:${burnProgress}%"></span>
         </div>
@@ -2516,7 +2637,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.30"
+    version: "1.0.31"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -2647,6 +2768,14 @@ function injectSoulBurnChatControl(message, html) {
   // editor. Remove any legacy embedded control and always build the operational
   // button from the Item's module flag instead.
   card.find(`[data-soul-burn-action="${action}"]`).remove();
+  card.find(".soul-burn-aetherglow-progression-note").remove();
+  if (action === "glow" && aetherglowProgressionReductionEnabled()) {
+    card.find(".card-content").append(
+      '<p class="soul-burn-aetherglow-progression-note"><strong>High-Stakes Mode:</strong> '
+      + "AetherGlow also lowers the recipient's future Soul Burn die progression by one step, "
+      + "to a minimum of one. Lifetime Uses are unchanged.</p>"
+    );
+  }
   let buttons = card.find(".card-buttons").first();
   if (!buttons.length) {
     buttons = $('<div class="card-buttons"></div>');

@@ -108,6 +108,20 @@
       </div>
 
       <div class="form-group">
+        <label>AetherGlow Reduces Soul Burn Die</label>
+        <div class="form-fields">
+          <input type="checkbox" name="aetherglowReducesSoulBurnDie" {{checked aetherglowReducesSoulBurnDie}}>
+        </div>
+        <p class="hint">
+          Optional High-Stakes rule. Each AetherGlow exposure lowers that
+          recipient's future Soul Burn activation progression by one die, to a
+          minimum of one. It never restores, removes, or stops Lifetime Uses;
+          Uses continue increasing normally on later activations. Disabled by
+          default.
+        </p>
+      </div>
+
+      <div class="form-group">
         <label>Constitution Check on End</label>
         <div class="form-fields">
           <input type="checkbox" name="requireEndConSave" {{checked requireEndConSave}}>

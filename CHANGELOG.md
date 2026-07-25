@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.31
+
+- Added the optional GM Mechanics setting **AetherGlow Reduces Soul Burn Die**,
+  disabled by default and dependent on High-Stakes Mode.
+- Each qualifying AetherGlow exposure now records one persistent reduction
+  step against the recipient's future Uses-based activation dice, to a minimum
+  of one die. Lifetime Uses are never restored or removed and continue
+  increasing normally on later activations.
+- When enabled, the progression offset and adjusted next roll appear in the
+  AetherGlow result, Soul Burn dashboard, Player Uses dialog, player-management
+  status, confirmation, activation result, rules, and AetherGlow card note.
+  When disabled, those mechanics and conditional interface additions are inert.
+- The Soul Burn Rules window is wider, and every section heading is explicitly
+  bold.
+
 ## 1.0.30
 
 - Added a GM Visuals setting named **Delay**, measured in seconds, controlling
