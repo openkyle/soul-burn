@@ -52,6 +52,7 @@ class SoulBurnSoundSettings extends FormApplication {
       endSound: soundPath("endSound"),
       rippleContrast: game.settings.get("soul-burn", "rippleContrast"),
       rippleDesaturation: game.settings.get("soul-burn", "rippleDesaturation"),
+      rippleDelaySeconds: game.settings.get("soul-burn", "rippleDelaySeconds"),
       rippleRecoverySeconds: game.settings.get("soul-burn", "rippleRecoverySeconds"),
       highStakesMode: game.settings.get("soul-burn", "highStakesMode"),
       requireEndConSave: game.settings.get("soul-burn", "requireEndConSave"),
@@ -60,6 +61,7 @@ class SoulBurnSoundSettings extends FormApplication {
         "applyExhaustionOnFailedConCheck"
       ),
       endConSaveDC: game.settings.get("soul-burn", "endConSaveDC"),
+      autoEndOnFateShift: game.settings.get("soul-burn", "autoEndOnFateShift"),
       fateShiftTimerSeconds: game.settings.get("soul-burn", "fateShiftTimerSeconds"),
       fateShiftTimerMessage: game.settings.get("soul-burn", "fateShiftTimerMessage"),
       defaultPowerUpSound: SB.defaultPowerUpSound,
@@ -133,6 +135,11 @@ class SoulBurnSoundSettings extends FormApplication {
     );
     await game.settings.set(
       "soul-burn",
+      "rippleDelaySeconds",
+      Math.min(30, Math.max(0, Number(formData.rippleDelaySeconds) || 0))
+    );
+    await game.settings.set(
+      "soul-burn",
       "rippleRecoverySeconds",
       Math.min(600, Math.max(1, Number(formData.rippleRecoverySeconds) || 60))
     );
@@ -149,6 +156,11 @@ class SoulBurnSoundSettings extends FormApplication {
       "soul-burn",
       "endConSaveDC",
       Math.min(30, Math.max(1, Number(formData.endConSaveDC) || 10))
+    );
+    await game.settings.set(
+      "soul-burn",
+      "autoEndOnFateShift",
+      Boolean(formData.autoEndOnFateShift)
     );
     await game.settings.set(
       "soul-burn",
@@ -331,6 +343,14 @@ Hooks.once("init", () => {
     type: Number,
     default: 60
   });
+  game.settings.register("soul-burn", "rippleDelaySeconds", {
+    name: "Battlefield Ripple Delay",
+    hint: "Seconds to wait after the full-color power-up animation completes before the ripple begins.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 0
+  });
   game.settings.register("soul-burn", "requireEndConSave", {
     name: "Require Constitution Check When Soul Burn Ends",
     hint: "Roll a Constitution ability check and report the result when any Soul Burn period ends.",
@@ -370,6 +390,14 @@ Hooks.once("init", () => {
     config: false,
     type: Number,
     default: SB.defaultFateShiftSeconds
+  });
+  game.settings.register("soul-burn", "autoEndOnFateShift", {
+    name: "Automatically End Soul Burn on Fate Shift",
+    hint: "End the active Soul Burn after the Fate Shift countdown completes.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
   });
   game.settings.register("soul-burn", "fateShiftTimerMessage", {
     name: "Fate Shift Countdown Message",
@@ -566,17 +594,30 @@ function state(actor) {
   };
 }
 
+function tokenImagePath(value) {
+  if (typeof value === "string") {
+    const path = value.trim();
+    return path === "[object Object]" ? "" : path;
+  }
+  if (!value || typeof value !== "object") return "";
+  return tokenImagePath(value.src ?? value.path ?? value.texture);
+}
+
+function prototypeTokenImage(actor) {
+  return tokenImagePath(actor.prototypeToken?.texture)
+    || tokenImagePath(actor.prototypeToken)
+    || tokenImagePath(actor.img);
+}
+
 function defaultTokenImage(actor) {
   const current = state(actor);
-  const savedOriginal = Object.values(current.originalImages ?? {}).find(Boolean);
+  const savedOriginal = Object.values(current.originalImages ?? {})
+    .map(tokenImagePath)
+    .find(Boolean);
   const activeToken = actorTokens(actor)[0];
-  return String(
-    savedOriginal
-    ?? activeToken?.document?.texture?.src
-    ?? actor.prototypeToken?.texture?.src
-    ?? actor.img
-    ?? ""
-  );
+  return savedOriginal
+    || tokenImagePath(activeToken?.document?.texture)
+    || prototypeTokenImage(actor);
 }
 
 async function configureActorTransformImage(actor) {
@@ -758,6 +799,8 @@ function configureRegularSoulBurnItem(data, action, actor) {
   } else if (action === "fate") {
     data.system.actionType = "other";
     data.system.formula = "";
+    data.system.description.value =
+      "<p>Declare an action that bends, breaks, or modifies the normal rules of the game. The GM must approve it. This cannot manifest infinite resources or simply wish an enemy dead.</p><p>The Fate Shift countdown resolves first. Soul Burn ends afterward only when the GM enables <strong>Automatically End Soul Burn on Fate Shift</strong>.</p>";
     data.system.uses = {
       ...(data.system.uses ?? {}),
       prompt: true
@@ -1203,6 +1246,10 @@ function battlefieldRippleSettings() {
       100,
       Math.max(0, Number(game.settings.get("soul-burn", "rippleDesaturation")) || 0)
     ),
+    delaySeconds: Math.min(
+      30,
+      Math.max(0, Number(game.settings.get("soul-burn", "rippleDelaySeconds")) || 0)
+    ),
     recoverySeconds: Math.min(
       600,
       Math.max(1, Number(game.settings.get("soul-burn", "rippleRecoverySeconds")) || 60)
@@ -1215,12 +1262,9 @@ function stopBattlefieldRipple() {
   if (!active) return;
   activeBattlefieldRipple = null;
   active.animation?.cancel();
+  if (active.frame) cancelAnimationFrame(active.frame);
   if (active.timer) clearTimeout(active.timer);
   active.overlay?.remove();
-  if (active.view) {
-    active.view.style.filter = active.baseFilter;
-    active.view.style.transition = active.baseTransition;
-  }
 }
 
 function battlefieldScreenPoint(worldPoint, view) {
@@ -1240,10 +1284,14 @@ function battlefieldScreenPoint(worldPoint, view) {
   }
 }
 
-function battlefieldRippleOrigin({ tokenId, actorId, x, y }, view) {
-  const liveToken = tokenId
+function battlefieldRippleToken({ tokenId, actorId }) {
+  return tokenId
     ? canvas.tokens?.get(tokenId)
     : canvas.tokens?.placeables?.find(placeable => placeable.actor?.id === actorId);
+}
+
+function battlefieldRippleOrigin(request, view) {
+  const liveToken = battlefieldRippleToken(request);
   const liveCenter = liveToken?.center;
   if (
     liveCenter
@@ -1252,10 +1300,76 @@ function battlefieldRippleOrigin({ tokenId, actorId, x, y }, view) {
   ) {
     return battlefieldScreenPoint(liveCenter, view);
   }
-  return battlefieldScreenPoint({ x: Number(x), y: Number(y) }, view);
+  return battlefieldScreenPoint(
+    { x: Number(request.x), y: Number(request.y) },
+    view
+  );
 }
 
-async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
+function tokenPreserverMedia(src) {
+  const cleanSrc = String(src ?? "").split(/[?#]/)[0].toLowerCase();
+  const isVideo = [".webm", ".mp4", ".m4v", ".ogv"].some(extension =>
+    cleanSrc.endsWith(extension)
+  );
+  const media = document.createElement(isVideo ? "video" : "img");
+  media.className = "soul-burn-token-color-preserver";
+  media.dataset.src = String(src ?? "");
+  if (isVideo) {
+    media.autoplay = true;
+    media.loop = true;
+    media.muted = true;
+    media.playsInline = true;
+  }
+  media.src = String(src ?? "");
+  return media;
+}
+
+function updateTokenColorPreserver(effect) {
+  if (activeBattlefieldRipple !== effect) return;
+  const token = battlefieldRippleToken(effect.request);
+  const currentSrc = tokenImagePath(token?.document?.texture)
+    || tokenImagePath(token?.document?.img);
+  if (!token || !currentSrc || !token.visible) {
+    if (effect.media) effect.media.hidden = true;
+    effect.frame = requestAnimationFrame(() => updateTokenColorPreserver(effect));
+    return;
+  }
+
+  if (!effect.media || effect.media.dataset.src !== currentSrc) {
+    const replacement = tokenPreserverMedia(currentSrc);
+    effect.media?.replaceWith(replacement);
+    if (!effect.media) effect.overlay.append(replacement);
+    effect.media = replacement;
+  }
+
+  const topLeft = battlefieldScreenPoint(
+    { x: Number(token.document.x), y: Number(token.document.y) },
+    effect.view
+  );
+  const bottomRight = battlefieldScreenPoint(
+    {
+      x: Number(token.document.x) + Number(token.w),
+      y: Number(token.document.y) + Number(token.h)
+    },
+    effect.view
+  );
+  if (topLeft && bottomRight) {
+    const texture = token.document.texture ?? {};
+    Object.assign(effect.media.style, {
+      left: `${Math.min(topLeft.x, bottomRight.x)}px`,
+      top: `${Math.min(topLeft.y, bottomRight.y)}px`,
+      width: `${Math.abs(bottomRight.x - topLeft.x)}px`,
+      height: `${Math.abs(bottomRight.y - topLeft.y)}px`,
+      opacity: String(Number(token.alpha ?? token.document.alpha ?? 1)),
+      transform: `rotate(${Number(token.document.rotation ?? 0)}deg) scale(${Number(texture.scaleX ?? 1)}, ${Number(texture.scaleY ?? 1)})`
+    });
+    effect.media.hidden = false;
+  }
+  effect.frame = requestAnimationFrame(() => updateTokenColorPreserver(effect));
+}
+
+async function playBattlefieldRipple(request = {}) {
+  const { sceneId } = request;
   if (!canvas?.ready || !canvas.scene || canvas.scene.id !== sceneId) return;
   const view = canvas.app?.view ?? canvas.app?.canvas;
   if (!view?.getBoundingClientRect) return;
@@ -1265,7 +1379,7 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   if (!rect.width || !rect.height) return;
   // Each connected client resolves the live token center through its own
   // camera transform. The transmitted scene position is only a fallback.
-  const point = battlefieldRippleOrigin({ tokenId, actorId, x, y }, view);
+  const point = battlefieldRippleOrigin(request, view);
   if (!point) return;
 
   stopBattlefieldRipple();
@@ -1300,13 +1414,6 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   overlay.append(circle);
   document.body.append(overlay);
 
-  const baseFilter = view.style.filter;
-  const baseTransition = view.style.transition;
-  const colorGrade = [
-    baseFilter,
-    `contrast(${contrast}%)`,
-    `grayscale(${settings.desaturation}%)`
-  ].filter(Boolean).join(" ");
   const animation = circle.animate(
     [
       { transform: "scale(0.001)", opacity: 0 },
@@ -1323,46 +1430,41 @@ async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
     animation,
     overlay,
     view,
-    baseFilter,
-    baseTransition,
+    request,
+    media: null,
+    frame: null,
     timer: null
   };
   activeBattlefieldRipple = effect;
+  updateTokenColorPreserver(effect);
 
   try {
     await animation.finished;
   } catch (_error) {
     if (activeBattlefieldRipple === effect) {
       activeBattlefieldRipple = null;
+      if (effect.frame) cancelAnimationFrame(effect.frame);
       overlay.remove();
-      view.style.filter = baseFilter;
-      view.style.transition = baseTransition;
     }
     return;
   }
   if (activeBattlefieldRipple !== effect) return;
 
-  // Transfer the color grade from the expanding backdrop-filter to the canvas
-  // itself, then animate only that grade back to the user's original filter.
-  view.style.transition = "none";
-  view.style.filter = colorGrade;
-  overlay.remove();
-  void view.offsetWidth;
-  view.style.transition = [
-    baseTransition,
-    `filter ${settings.recoverySeconds}s linear`
-  ].filter(Boolean).join(", ");
-  requestAnimationFrame(() => {
-    if (activeBattlefieldRipple === effect) {
-      view.style.filter = baseFilter || "none";
+  // Keep the live backdrop-filter in place and fade that layer away. The
+  // activating token is repainted above it from its own transparent media, so
+  // no circular color aura or GPU canvas readback is required.
+  effect.animation = circle.animate(
+    [{ opacity: 1 }, { opacity: 0 }],
+    {
+      duration: settings.recoverySeconds * 1000,
+      easing: "linear",
+      fill: "forwards"
     }
-  });
+  );
 
   effect.timer = setTimeout(() => {
     if (activeBattlefieldRipple !== effect) return;
-    activeBattlefieldRipple = null;
-    view.style.filter = baseFilter;
-    view.style.transition = baseTransition;
+    stopBattlefieldRipple();
   }, settings.recoverySeconds * 1000 + 150);
 }
 
@@ -1454,8 +1556,12 @@ async function playAnimation(token, nextState) {
     }
   }
 
-  const original = token.document.texture?.src ?? token.document.img;
-  nextState.originalImages[token.document.uuid] ??= original;
+  const original = tokenImagePath(token.document.texture)
+    || tokenImagePath(token.document.img)
+    || prototypeTokenImage(token.actor);
+  if (!tokenImagePath(nextState.originalImages[token.document.uuid])) {
+    nextState.originalImages[token.document.uuid] = original;
+  }
   const imageName = cleanName(token.actor.name).replace(/\s+/g, "");
   const transformedImage = String(nextState.transformedImage ?? "").trim()
     || `${SB.transformedTokenRoot}/${encodeURIComponent(imageName)}.webp`;
@@ -1465,10 +1571,10 @@ async function playAnimation(token, nextState) {
     console.warn("Soul Burn | Transformed token image unavailable.", error);
   }
 
-  // Keep the completed transformation visible in full color for one full
-  // second. The original live backdrop-filter ripple then begins from the
-  // activating token; no canvas snapshot or duplicate color aura is created.
-  await wait(1000);
+  // The complete power-up remains full color. The GM-configured delay begins
+  // only after that animation and the token transformation have finished.
+  const rippleDelayMs = battlefieldRippleSettings().delaySeconds * 1000;
+  if (rippleDelayMs > 0) await wait(rippleDelayMs);
   broadcastBattlefieldRipple(token);
 }
 
@@ -1508,7 +1614,8 @@ async function applyMovement(actor) {
 
 async function removeVisuals(actor, savedState) {
   const restoredTokenUuids = new Set();
-  for (const [tokenUuid, original] of Object.entries(savedState.originalImages ?? {})) {
+  for (const [tokenUuid, savedOriginal] of Object.entries(savedState.originalImages ?? {})) {
+    const original = tokenImagePath(savedOriginal) || prototypeTokenImage(actor);
     if (!original) continue;
     try {
       const tokenDocument = await fromUuid(tokenUuid);
@@ -1536,7 +1643,9 @@ async function removeVisuals(actor, savedState) {
         console.warn("Soul Burn | Could not remove TokenMagic filter.", error);
       }
     }
-    const original = savedState.originalImages?.[token.document.uuid];
+    const original = tokenImagePath(
+      savedState.originalImages?.[token.document.uuid]
+    ) || prototypeTokenImage(actor);
     if (
       original
       && !restoredTokenUuids.has(token.document.uuid)
@@ -1791,7 +1900,7 @@ async function fateShift(actor) {
     "Fate Shift",
     `<p>Describe the rule bend for the GM to approve.</p><div class="form-group stacked"><textarea name="declaration" rows="5"></textarea></div>`,
     {
-      declare: { icon: '<i class="fas fa-wand-magic-sparkles"></i>', label: "Declare & End Burn", value: html => String(html.find('[name="declaration"]').val() ?? "").trim() },
+      declare: { icon: '<i class="fas fa-wand-magic-sparkles"></i>', label: "Declare Fate Shift", value: html => String(html.find('[name="declaration"]').val() ?? "").trim() },
       cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: null }
     },
     "declare"
@@ -1803,7 +1912,10 @@ async function fateShift(actor) {
     whisper: gmIds,
     content: `<h3>Fate Shift Approval</h3><p><strong>${esc(actor.name)}</strong> declares:</p><blockquote>${esc(declaration)}</blockquote>`
   });
-  await endBurn(actor, "Fate Shift");
+  await showFateShiftCountdown(actor);
+  if (game.settings.get("soul-burn", "autoEndOnFateShift")) {
+    await endBurn(actor, "Fate Shift");
+  }
 }
 
 async function cleanseAetherglowEffects(actor) {
@@ -2027,7 +2139,7 @@ async function showRules() {
       <h2>Channel Aether (1 Action or Reaction)</h2>
       <p>You may use Channel Aether a number of times equal to your proficiency bonus, regaining all uses on a short or long rest. Make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
       <h2>Fate Shift (1 Legendary Action)</h2>
-      <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. When complete, Soul Burn ends.</p>
+      <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. The countdown resolves before any ending animation. Soul Burn ends afterward only if the GM enables automatic ending for Fate Shift.</p>
     </div>`,
     buttons: { close: { icon: '<i class="fas fa-times"></i>', label: "Close" } },
     default: "close",
@@ -2404,7 +2516,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.29"
+    version: "1.0.30"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -2696,7 +2808,9 @@ async function showFateShiftCountdown(actor) {
       if (finished) return;
       finished = true;
       if (interval) clearInterval(interval);
-      resolve();
+      const remaining = Math.max(0, endsAt - Date.now());
+      if (remaining > 0) setTimeout(resolve, remaining);
+      else resolve();
     };
     const update = html => {
       const millisecondsLeft = Math.max(0, endsAt - Date.now());
@@ -2760,7 +2874,9 @@ async function resolveNativeSoulBurnItemUse(document) {
     }
     if (action === "fate") {
       await showFateShiftCountdown(actor);
-      await endBurn(actor, "Fate Shift");
+      if (game.settings.get("soul-burn", "autoEndOnFateShift")) {
+        await endBurn(actor, "Fate Shift");
+      }
       return;
     }
 

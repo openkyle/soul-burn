@@ -96,9 +96,10 @@ requirements, range, and description. Only the dice icon uses the Item. The
 information icon opens the complete locked Item sheet.
 
 The four managed copies are hidden from duplicate Actions and Features
-listings. When Soul Burn ends—through Exit Soul Burn, Fate Shift, or combat
-expiry—the module deletes only those managed copies and the Inventory section
-disappears. The permanent Soul Burn feature remains in Features.
+listings. When Soul Burn ends—through Exit Soul Burn, combat expiry, or Fate
+Shift when its optional auto-end setting is enabled—the module deletes only
+those managed copies and the Inventory section disappears. The permanent Soul
+Burn feature remains in Features.
 
 The owned **Soul Burn** feature is locked against player editing and deletion;
 GMs can still edit it. While active, its sheet name and chat-card control become
@@ -120,9 +121,12 @@ so it also works if the GM is viewing another scene when the burn ends.
 ### Fate Shift
 
 Fate Shift is used as a normal dnd5e Item. Its description provides the
-rule-bending terms. Using it opens a real-time countdown and progress bar before
-Soul Burn ends. The GM controls the countdown length and message under the
-Mechanics settings; `{seconds}` is replaced with the live remaining time.
+rule-bending terms. Using it opens a real-time countdown and progress bar. The
+GM controls the countdown length and message under the Mechanics settings;
+`{seconds}` is replaced with the live remaining time. **Automatically End Soul
+Burn on Fate Shift** is disabled by default. When enabled, the normal ending
+animation and workflow begin only after the full countdown completes. When
+disabled, Fate Shift leaves Soul Burn active.
 
 ### AetherGlow and AGT
 
@@ -157,7 +161,9 @@ The GM can change any sound under **Configure Settings → Module Settings →
 Soul Burn Settings**. The settings panel includes Browse, Preview, and Restore
 Bundled Sound controls. It also configures the synchronized battlefield
 ripple's contrast increase, desaturation, and real-time recovery duration. The
-panel is organized into **Sounds**, **Visuals**, and **Mechanics** tabs.
+Visuals tab also provides a **Delay** in seconds after the completed power-up;
+its default is 0. The panel is organized into **Sounds**, **Visuals**, and
+**Mechanics** tabs.
 
 Mechanics can require a Constitution check when Soul Burn ends. The optional
 **Apply Exhaustion on Failed Check** setting automatically enables that check
@@ -367,7 +373,8 @@ Activation preserves the supplied sequence:
 3. Play the yellow JB2A Sacred Flame explosion for 5.4 seconds at 2× scale.
 4. Apply the animated white TokenMagic fire filter.
 5. Swap the token to the campaign-specific transformed image.
-6. Hold the completed transformation in full color for one second.
+6. Wait for the GM-configured ripple **Delay** after the completed full-color
+   transformation. The default is 0 seconds.
 7. Send the live grayscale refractive ripple outward from the transformed token
    for all clients viewing the scene. Each client resolves the token through
    its own camera transform so the origin remains correct at different pans and
@@ -376,9 +383,12 @@ Activation preserves the supplied sequence:
    fade it back to its original grading over the configured real-time duration.
 
 The ripple uses the original live backdrop-filter implementation. It does not
-copy the WebGL canvas, create a duplicate token image, or preserve a colored
-circle around the character. This avoids GPU readback black-circle artifacts
-and color-aura alignment problems.
+copy or read back the WebGL canvas. During the ripple and recovery, the
+activating token's transparent source image or video is positioned above the
+grade and follows the live token and camera. This keeps only the token colored,
+without preserving a circular area around it or risking GPU-readback black
+artifacts. The full JB2A power-up completes before the ripple delay begins, so
+the power-up animation is never desaturated.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,

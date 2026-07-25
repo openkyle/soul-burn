@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.30
+
+- Added a GM Visuals setting named **Delay**, measured in seconds, controlling
+  the wait between the completed full-color power-up and the battlefield
+  ripple. The default is 0 seconds.
+- The live ripple now retains its backdrop-filter layer during recovery and
+  repaints only the activating token's transparent source media above it. This
+  keeps the token colored without a circular color aura or WebGL readback.
+- The full JB2A power-up animation completes in color before the configurable
+  ripple delay begins.
+- Removed Inventory-row hover color changes and slightly reduced Soul Burn
+  Item typography.
+- Added **Automatically End Soul Burn on Fate Shift**, disabled by default.
+  The countdown always completes before an enabled end workflow begins; when
+  disabled, Fate Shift does not end Soul Burn.
+- Normalized Foundry Token texture objects to their actual source paths in the
+  transformation editor, activation capture, overlay, and exit restoration.
+  Legacy `[object Object]` values fall back to the Actor's prototype-token
+  image.
+
 ## 1.0.29
 
 - Channel Aether now has uses equal to the character's proficiency bonus and

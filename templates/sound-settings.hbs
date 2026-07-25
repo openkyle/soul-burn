@@ -49,11 +49,22 @@
     <div class="tab" data-group="primary" data-tab="visuals">
       <h2>Battlefield Ripple</h2>
       <p class="notes">
-        One second after the original full-color animated power-up completes, a
-        live grayscale refractive wave expands from the transformed character.
+        After the original full-color animated power-up completes and the
+        configured delay elapses, a live grayscale refractive wave expands from
+        the transformed character.
         Every connected client resolves the origin from that token using its
-        own camera position and zoom.
+        own camera position and zoom. The transformed token remains in full
+        color above the battlefield grade.
       </p>
+
+      <div class="form-group">
+        <label>Delay</label>
+        <div class="form-fields">
+          <input type="number" name="rippleDelaySeconds" value="{{rippleDelaySeconds}}" min="0" max="30" step="0.1">
+          <span class="units">seconds</span>
+        </div>
+        <p class="hint">Time after the full-color animation completes before the ripple starts. Set to 0 for immediate playback.</p>
+      </div>
 
       <div class="form-group">
         <label>Contrast Increase</label>
@@ -124,6 +135,18 @@
       </div>
 
       <hr>
+
+      <div class="form-group">
+        <label>Automatically End Soul Burn on Fate Shift</label>
+        <div class="form-fields">
+          <input type="checkbox" name="autoEndOnFateShift" {{checked autoEndOnFateShift}}>
+        </div>
+        <p class="hint">
+          When enabled, Soul Burn ends only after the Fate Shift countdown
+          reaches zero. Disabled by default; when disabled, Fate Shift leaves
+          the character in Soul Burn.
+        </p>
+      </div>
 
       <div class="form-group">
         <label>Fate Shift Countdown</label>

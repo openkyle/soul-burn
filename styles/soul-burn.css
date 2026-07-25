@@ -52,6 +52,7 @@
 
 .soul-burn-battlefield-wave {
   position: absolute;
+  z-index: 1;
   background: rgba(255, 255, 255, 0.001);
   border: 2px solid rgba(255, 231, 154, 0.9);
   border-radius: 50%;
@@ -63,6 +64,18 @@
   transform: scale(0.001);
   transform-origin: center;
   will-change: transform, opacity;
+}
+
+.soul-burn-token-color-preserver {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
+  pointer-events: none;
+  transform-origin: center;
+  will-change: left, top, width, height, transform;
 }
 
 .soul-burn-battlefield-wave::after {
@@ -269,13 +282,18 @@
   grid-template-columns: 34px minmax(180px, 1fr) 96px 112px 64px;
   min-height: 34px;
   align-items: center;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   background: rgba(236, 207, 127, 0.16);
   border-bottom: 1px solid rgba(127, 97, 47, 0.25);
 }
 
 .soul-burn-inventory-row:last-child {
   border-bottom: 0;
+}
+
+.soul-burn-inventory-row:hover {
+  color: inherit !important;
+  background: rgba(236, 207, 127, 0.16) !important;
 }
 
 .soul-burn-inventory-row > img {
@@ -314,8 +332,10 @@
   transform: rotate(90deg);
 }
 
-.soul-burn-inventory-name:hover {
-  color: var(--t5e-primary-accent-color, #d76b00);
+.soul-burn-inventory-name:hover,
+.soul-burn-inventory-name:focus {
+  color: inherit !important;
+  background: transparent !important;
   box-shadow: none;
 }
 
