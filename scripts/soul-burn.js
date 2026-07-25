@@ -1223,7 +1223,7 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
     "Give Aetherglow",
     `<p>Who receives this Aetherglow charge?</p>
      <div class="form-group"><label>Recipient</label><select name="targetActor">${groups}</select></div>
-     <p class="notes">Player characters are listed first, followed by NPCs on the active scene; vehicles are excluded.<br><br>Click <strong>Give &amp; Roll</strong> to roll 1d20. Soul Burning recipients subtract their AGT (minimum result 1) and clear that much Soul Burn. Other recipients regain HP equal to the roll. Every exposure increases the recipient's AGT by 1.</p>`,
+     <p class="notes">Rolls 1d20 when Give &amp; Roll is clicked. Soul Burned recipients apply their own AGT and decrease Soul Burn; other recipients heal from the roll. Exposure increases Tolerance by 1.</p>`,
     {
       give: {
         icon: '<i class="fas fa-flask"></i>',
@@ -1509,7 +1509,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.12"
+    version: "1.0.13"
   });
 
   await cleanLegacyCompendiumIndex();

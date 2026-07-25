@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.13
+
+- Replaced the Give Aetherglow help text with the campaign wording supplied by
+  the GM.
+
 ## 1.0.12
 
 - Rewrote the Give Aetherglow recipient note into a shorter, clearer
