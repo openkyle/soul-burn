@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+- Added the **Soul Burn Features** compendium with Soul Burn, AetherStrike,
+  Channel Aether, Fate Shift, and Aetherglow character features.
+- Added the **Soul Burn Macros** compendium with the launcher macro.
+- Added functional feature-sheet buttons that call the owning Actor's module
+  workflow.
+
 ## 1.0.1
 
 - Bundled `AetherUp3.ogg` as the Soul Burn activation sound.

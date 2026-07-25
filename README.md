@@ -122,6 +122,21 @@ Configure the constant at the top of
 7. On the character sheet, set the tertiary resource label to `Soul Burn`.
    Set its current value to `0` and its maximum to the intended maximum.
 
+## Compendiums
+
+The module includes two compendium packs:
+
+- **Soul Burn Features** contains Soul Burn, AetherStrike, Channel Aether,
+  Fate Shift, and Aetherglow. Drag these features onto a player character sheet.
+  Each feature includes a button that runs its module-managed action for the
+  owning Actor.
+- **Soul Burn Macros** contains the Soul Burn launcher. Import it or drag it to
+  the hotbar if the automatically created world macro is missing.
+
+In Foundry V11, open the **Compendium Packs** sidebar, expand the **Soul Burn**
+package section, and open either pack. The GM can drag features from the pack
+directly onto character sheets.
+
 No journal named `H4H` or `SoulBurn` is required. Persistent per-character
 metadata is stored in:
 

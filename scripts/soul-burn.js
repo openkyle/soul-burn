@@ -643,6 +643,26 @@ async function resetChannel(actor) {
   ui.notifications.info(`Channel Aether reset for ${actor.name}.`);
 }
 
+async function runSoulBurnAction(action, { actor = null, token = null } = {}) {
+  try {
+    const subject = await resolveSubject(actor, token);
+    if (!subject) return;
+    const actions = {
+      activate: () => activate(subject.actor, subject.token),
+      strike: () => aetherStrike(subject.actor),
+      channel: () => channelAether(subject.actor),
+      fate: () => fateShift(subject.actor),
+      glow: () => consumeAetherglow(subject.actor),
+      end: () => endBurn(subject.actor),
+      reset: () => resetChannel(subject.actor)
+    };
+    if (!actions[action]) throw new Error(`Unknown Soul Burn action: ${action}`);
+    await actions[action]();
+  } catch (error) {
+    notifyError(error);
+  }
+}
+
 async function showRules() {
   new Dialog({
     title: "Soul Burn Rules",
@@ -759,14 +779,7 @@ async function dashboard(actor, token) {
     dialog.render(true);
   });
 
-  if (!action) return;
-  if (action === "activate") await activate(actor, token);
-  if (action === "strike") await aetherStrike(actor);
-  if (action === "channel") await channelAether(actor);
-  if (action === "fate") await fateShift(actor);
-  if (action === "glow") await consumeAetherglow(actor);
-  if (action === "end") await endBurn(actor);
-  if (action === "reset") await resetChannel(actor);
+  if (action) await runSoulBurnAction(action, { actor, token });
 }
 
 async function openSoulBurn({ actor = null, token = null } = {}) {
@@ -781,8 +794,9 @@ async function openSoulBurn({ actor = null, token = null } = {}) {
 Hooks.once("ready", async () => {
   game.soulBurn = Object.freeze({
     open: openSoulBurn,
+    run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.1"
+    version: "1.0.2"
   });
 
   if (!game.user.isGM) return;
@@ -815,4 +829,23 @@ Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
     icon: "fas fa-fire",
     onclick: () => openSoulBurn({ actor })
   });
+});
+
+function bindFeatureButtons(app, html, actor) {
+  if (!actor || actor.type !== "character") return;
+  if (!game.user.isGM && !actor.isOwner) return;
+  html.find("[data-soul-burn-action]")
+    .off("click.soulBurn")
+    .on("click.soulBurn", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      runSoulBurnAction(event.currentTarget.dataset.soulBurnAction, { actor });
+    });
+}
+
+Hooks.on("renderActorSheet", (app, html) => bindFeatureButtons(app, html, app.actor));
+Hooks.on("renderItemSheet", (app, html) => bindFeatureButtons(app, html, app.item?.parent));
+Hooks.on("renderChatMessage", (message, html) => {
+  const actor = game.actors.get(message.speaker?.actor);
+  bindFeatureButtons(message, html, actor);
 });
