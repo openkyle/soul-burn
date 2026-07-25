@@ -262,6 +262,8 @@ The primary dialog intentionally follows the original campaign interface:
 - Character name and Hit Die
 - `Soul Burn: current / maximum`
 - Use count and live Burnout odds
+- A gold progress meter that fills left-to-right as Soul Burn approaches its
+  maximum
 - **Player Uses** for the campaign roster and AGT
 - **More Info** for the complete rules
 - **SOUL BURN** with a separate risk-confirmation dialog

@@ -651,7 +651,11 @@ async function syncSoulBurnFeature(actor, active = state(actor).active) {
   const item = soulBurnFeature(actor);
   if (!item) return;
 
-  let description = String(item.system.description?.value ?? "");
+  let description = String(item.system.description?.value ?? "")
+    .replace(
+      /<p>\s*<strong>\s*This feature requires an available Hit Die\.\s*<\/strong>\s*<\/p>/gi,
+      ""
+    );
   if (active) {
     description = description
       .replaceAll('data-soul-burn-action="open"', 'data-soul-burn-action="end"')
@@ -1490,6 +1494,9 @@ async function showPlayerUses(activeActor) {
 async function dashboard(actor, token) {
   const current = state(actor);
   const max = maximumBurn(actor);
+  const burnProgress = max > 0
+    ? Math.min(100, Math.max(0, (current.burn / max) * 100))
+    : 0;
   const dice = classData(actor);
   const primary = dice[0];
   const nextDiceCount = highStakesDiceCount(current);
@@ -1527,6 +1534,9 @@ async function dashboard(actor, token) {
         <p><strong>${esc(cleanName(actor.name))}</strong></p>
         <p>Next Soul Burn Roll: ${primary ? `${nextDiceCount}d${primary.faces}` : "—"}${nextDiceCount > 1 ? " <strong>(High Stakes)</strong>" : ""}</p>
         <p>Soul Burn: <strong>${current.burn} / ${max}</strong> | Uses: ${current.uses} | Burnout Odds: <strong>${primary ? burnoutChance(primary.faces, max - current.burn, nextDiceCount) : 0}%</strong></p>
+        <div class="soul-burn-progress" role="progressbar" aria-label="Soul Burn accumulation" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${current.burn}" title="${current.burn} / ${max} Soul Burn">
+          <span style="width:${burnProgress}%"></span>
+        </div>
         ${current.active ? `<p>Status: <strong>ACTIVE</strong>${current.burnout ? " | <strong>Burnout pending</strong>" : ""}<br>${diceText}</p>` : ""}
         ${combatWarning}
         <div style="display:flex;justify-content:center;gap:8px;margin:10px 0">
@@ -1672,7 +1682,7 @@ Hooks.once("tidy5e-sheet.ready", api => {
 Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
   const actor = app.actor;
   if (!actor || actor.type !== "character") return;
-  const root = element instanceof HTMLElement ? element : element?.[0];
+  const root = element?.nodeType === 1 ? element : element?.[0];
   if (!root) return;
   const itemsToIsolate = state(actor).active
     ? allOwnedSoulBurnActionItems(actor)
@@ -1698,6 +1708,47 @@ Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
   }
 });
 
+// Tidy and dnd5e expose several different Item launch paths. Intercept the
+// actual sheet click during capture, before any sheet listener can create the
+// deprecated Item card. Attaching to the sheet root also survives PopOut!
+// moving that application into a separate browser window.
+const soulBurnInterceptedSheets = new WeakSet();
+
+function installSoulBurnSheetInterception(app, element) {
+  const root = element?.nodeType === 1 ? element : element?.[0];
+  const actor = app?.actor;
+  if (!root || !actor || soulBurnInterceptedSheets.has(root)) return;
+  soulBurnInterceptedSheets.add(root);
+
+  root.addEventListener("click", event => {
+    const row = event.target?.closest?.("[data-item-id]");
+    if (!row || !root.contains(row)) return;
+    const item = actor.items.get(row.dataset.itemId);
+    if (item?.getFlag(SB.scope, "action") !== "activate") return;
+
+    // Preserve explicit GM maintenance controls while routing every ordinary
+    // player-facing launch control to the Soul Burn dashboard.
+    if (
+      game.user.isGM
+      && event.target.closest(
+        ".item-edit, .item-delete, [data-action*='edit'], [data-action*='delete']"
+      )
+    ) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    scheduleSoulBurnDashboard(item);
+  }, true);
+}
+
+Hooks.on("renderActorSheet", (app, element) => {
+  installSoulBurnSheetInterception(app, element);
+});
+
+Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
+  installSoulBurnSheetInterception(app, element);
+});
+
 Hooks.on("renderCompendium", (app, html) => {
   if (app.collection?.collection !== SB.pack) return;
   const canonicalExists = app.collection.index?.has?.("AetherStrikeFeat")
@@ -1716,7 +1767,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.17"
+    version: "1.0.18"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -1855,6 +1906,25 @@ Hooks.on("dnd5e.preDisplayCard", (item, _chatData, options) => {
 // dnd5e 4+ replaced the legacy hook with a cancellable V2 hook.
 Hooks.on("dnd5e.preDisplayCardV2", item => {
   if (!scheduleSoulBurnDashboard(item)) return true;
+  return false;
+});
+
+// Final guard for sheet integrations that call ChatMessage.create directly
+// instead of respecting dnd5e's cancellable Item hooks.
+Hooks.on("preCreateChatMessage", (_message, data) => {
+  const content = String(data.content ?? "");
+  const flaggedItemId = data.flags?.dnd5e?.use?.itemId
+    ?? data.flags?.["dnd5e.use"]?.itemId;
+  const cardItemId = content.match(
+    /class="[^"]*\bitem-card\b[^"]*"[^>]*data-item-id="([^"]+)"/i
+  )?.[1] ?? content.match(/data-item-id="([^"]+)"[^>]*class="[^"]*\bitem-card\b/i)?.[1];
+  const itemId = flaggedItemId ?? cardItemId;
+  const actor = (data.speaker?.actor ? game.actors.get(data.speaker.actor) : null)
+    ?? (data.speaker?.token ? canvas.tokens?.get(data.speaker.token)?.actor : null);
+  const item = actor?.items.get(itemId);
+  if (item?.getFlag(SB.scope, "action") !== "activate") return true;
+
+  scheduleSoulBurnDashboard(item);
   return false;
 });
 

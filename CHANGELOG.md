@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.18
+
+- Intercepts Soul Burn launches at the character-sheet click itself, before
+  Tidy or dnd5e can create the deprecated feature chat card.
+- Retains the dnd5e Item-use and display-card guards and adds a final
+  pre-creation guard for integrations that create Item cards directly.
+- Successful activation remains the only point where a Soul Burn roll card is
+  posted to chat.
+- Removed the redundant “This feature requires an available Hit Die” footer
+  from new and existing owned Soul Burn features.
+- Added a gold, left-to-right Soul Burn accumulation meter beneath the
+  Soul Burn/Uses/Burnout Odds line in the dashboard.
+
 ## 1.0.17
 
 - Replaced the separate Soul Burn character-sheet tab with a Tidy-native,
