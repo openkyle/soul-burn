@@ -50,6 +50,12 @@
   contain: strict;
 }
 
+.soul-burn-battlefield-color-preserver {
+  position: fixed;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .soul-burn-battlefield-wave {
   position: absolute;
   background: rgba(255, 255, 255, 0.001);

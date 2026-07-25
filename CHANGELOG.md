@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.20
+
+- Keeps the activating character, TokenMagic fire, and nearby Soul Burn
+  animation vivid while the surrounding battlefield is desaturated.
+- Adds a feathered full-color aura that follows the activating token throughout
+  the configured recovery period.
+- Limits the live color-preservation redraw to the aura region at 30 FPS to
+  avoid unnecessary full-canvas work.
+
 ## 1.0.19
 
 - Added a synchronized battlefield-wide Soul Burn ripple originating from the

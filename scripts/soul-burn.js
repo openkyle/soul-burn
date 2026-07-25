@@ -931,8 +931,10 @@ function stopBattlefieldRipple() {
   if (!active) return;
   activeBattlefieldRipple = null;
   active.animation?.cancel();
+  if (active.colorFrame) cancelAnimationFrame(active.colorFrame);
   if (active.timer) clearTimeout(active.timer);
   active.overlay?.remove();
+  active.colorCanvas?.remove();
   if (active.view) {
     active.view.style.filter = active.baseFilter;
     active.view.style.transition = active.baseTransition;
@@ -956,7 +958,91 @@ function battlefieldScreenPoint(worldPoint, view) {
   }
 }
 
-async function playBattlefieldRipple({ sceneId, x, y } = {}) {
+function startBattlefieldColorPreserver(effect) {
+  const { view } = effect;
+  const colorCanvas = document.createElement("canvas");
+  colorCanvas.className = "soul-burn-battlefield-color-preserver";
+  effect.colorCanvas = colorCanvas;
+  document.body.append(colorCanvas);
+
+  let lastDraw = 0;
+  const draw = time => {
+    if (activeBattlefieldRipple !== effect) return;
+    effect.colorFrame = requestAnimationFrame(draw);
+    if (time - lastDraw < 33) return;
+    lastDraw = time;
+
+    const rect = view.getBoundingClientRect();
+    const sourceWidth = Number(view.width ?? canvas.app.renderer.width);
+    const sourceHeight = Number(view.height ?? canvas.app.renderer.height);
+    if (!rect.width || !rect.height || !sourceWidth || !sourceHeight) return;
+    if (colorCanvas.width !== sourceWidth) colorCanvas.width = sourceWidth;
+    if (colorCanvas.height !== sourceHeight) colorCanvas.height = sourceHeight;
+    Object.assign(colorCanvas.style, {
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`
+    });
+
+    const token = canvas.tokens?.get(effect.tokenId)
+      ?? canvas.tokens?.placeables?.find(placeable => placeable.actor?.id === effect.actorId);
+    const worldCenter = token?.center ?? effect.origin;
+    const point = battlefieldScreenPoint(worldCenter, view);
+    if (!point) return;
+
+    const rendererWidth = Number(canvas.app.renderer.screen?.width ?? rect.width);
+    const zoom = Math.abs(Number(canvas.stage.scale?.x ?? 1));
+    const gridSize = Number(canvas.grid?.size ?? canvas.scene?.grid?.size ?? 100);
+    const radiusCss = Math.max(
+      90,
+      gridSize * zoom * (rect.width / rendererWidth) * 2.65
+    );
+    const scaleX = sourceWidth / rect.width;
+    const scaleY = sourceHeight / rect.height;
+    const centerX = point.x * scaleX;
+    const centerY = point.y * scaleY;
+    const radius = radiusCss * Math.max(scaleX, scaleY);
+    const left = Math.max(0, centerX - radius);
+    const top = Math.max(0, centerY - radius);
+    const right = Math.min(sourceWidth, centerX + radius);
+    const bottom = Math.min(sourceHeight, centerY + radius);
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+
+    const context = colorCanvas.getContext("2d");
+    if (effect.colorBounds) {
+      const previous = effect.colorBounds;
+      context.clearRect(previous.left, previous.top, previous.width, previous.height);
+    }
+    effect.colorBounds = { left, top, width, height };
+    if (!width || !height) return;
+    context.save();
+    context.beginPath();
+    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    context.clip();
+    context.drawImage(view, left, top, width, height, left, top, width, height);
+    context.globalCompositeOperation = "destination-in";
+    const feather = context.createRadialGradient(
+      centerX,
+      centerY,
+      radius * 0.5,
+      centerX,
+      centerY,
+      radius
+    );
+    feather.addColorStop(0, "rgba(255,255,255,1)");
+    feather.addColorStop(0.62, "rgba(255,255,255,1)");
+    feather.addColorStop(0.82, "rgba(255,255,255,0.82)");
+    feather.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = feather;
+    context.fillRect(left, top, width, height);
+    context.restore();
+  };
+  effect.colorFrame = requestAnimationFrame(draw);
+}
+
+async function playBattlefieldRipple({ sceneId, actorId, tokenId, x, y } = {}) {
   if (!canvas?.ready || !canvas.scene || canvas.scene.id !== sceneId) return;
   const view = canvas.app?.view ?? canvas.app?.canvas;
   if (!view?.getBoundingClientRect) return;
@@ -1024,9 +1110,16 @@ async function playBattlefieldRipple({ sceneId, x, y } = {}) {
     view,
     baseFilter,
     baseTransition,
+    actorId,
+    tokenId,
+    origin: { x, y },
+    colorCanvas: null,
+    colorFrame: null,
+    colorBounds: null,
     timer: null
   };
   activeBattlefieldRipple = effect;
+  startBattlefieldColorPreserver(effect);
 
   try {
     await animation.finished;
@@ -1054,6 +1147,8 @@ async function playBattlefieldRipple({ sceneId, x, y } = {}) {
   effect.timer = setTimeout(() => {
     if (activeBattlefieldRipple !== effect) return;
     activeBattlefieldRipple = null;
+    if (effect.colorFrame) cancelAnimationFrame(effect.colorFrame);
+    effect.colorCanvas?.remove();
     view.style.filter = baseFilter;
     view.style.transition = baseTransition;
   }, settings.recoverySeconds * 1000 + 150);
@@ -1069,6 +1164,7 @@ function broadcastBattlefieldRipple(token) {
     type: "battlefieldRipple",
     requesterId: game.user.id,
     actorId: token.actor?.id,
+    tokenId: token.document?.id,
     sceneId: canvas.scene.id,
     x: Number(center.x),
     y: Number(center.y)
@@ -1986,7 +2082,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.19"
+    version: "1.0.20"
   });
 
   await cleanLegacyCompendiumIndex();

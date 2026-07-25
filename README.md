@@ -307,11 +307,13 @@ Activation preserves the supplied sequence:
    viewing the scene.
 2. Leave the battlefield at the configured contrast and desaturation, then
    fade it back to its original grading over the configured real-time duration.
-3. Play `AetherUp3.ogg`.
-4. Wait 700 ms.
-5. Play the yellow JB2A Sacred Flame effect for 5.4 seconds at 2× scale.
-6. Apply the animated white TokenMagic fire filter.
-7. Swap the token to the campaign-specific transformed image.
+3. Preserve a feathered full-color aura around the activating character so
+   that character, the Sacred Flame power-up, and TokenMagic fire remain vivid.
+4. Play `AetherUp3.ogg`.
+5. Wait 700 ms.
+6. Play the yellow JB2A Sacred Flame effect for 5.4 seconds at 2× scale.
+7. Apply the animated white TokenMagic fire filter.
+8. Swap the token to the campaign-specific transformed image.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,
