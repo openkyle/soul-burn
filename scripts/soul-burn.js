@@ -75,6 +75,87 @@ class SoulBurnSoundSettings extends FormApplication {
   }
 }
 
+class SoulBurnPlayerManager extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: "soul-burn-player-manager",
+      title: "Soul Burn Player Management",
+      template: "modules/soul-burn/templates/player-management.hbs",
+      width: 820,
+      height: "auto",
+      closeOnSubmit: false
+    });
+  }
+
+  getData() {
+    const actors = game.actors
+      .filter(actor => actor.type === "character" && actor.hasPlayerOwner)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(actor => {
+        const current = state(actor);
+        return {
+          id: actor.id,
+          name: actor.name,
+          img: actor.img,
+          burn: current.burn,
+          max: maximumBurn(actor),
+          uses: current.uses,
+          tolerance: current.tolerance,
+          channelUsed: current.channelUsed,
+          active: current.active,
+          burnout: current.burnout,
+          usesSoulBurn: hasSoulBurnResource(actor)
+        };
+      });
+    return { actors };
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    html.find("[data-reset-tolerance]").on("click", async event => {
+      event.preventDefault();
+      const actor = game.actors.get(event.currentTarget.dataset.resetTolerance);
+      if (!actor) return;
+      await saveManagedState(actor, { ...state(actor), tolerance: 0 });
+      ui.notifications.info(`${actor.name}'s AG Tolerance was reset.`);
+      this.render();
+    });
+    html.find("[data-reset-channel]").on("click", async event => {
+      event.preventDefault();
+      const actor = game.actors.get(event.currentTarget.dataset.resetChannel);
+      if (!actor) return;
+      await saveManagedState(actor, { ...state(actor), channelUsed: false });
+      ui.notifications.info(`${actor.name}'s Channel Aether was reset.`);
+      this.render();
+    });
+    html.find("[data-reset-all-tolerance]").on("click", async event => {
+      event.preventDefault();
+      for (const actor of game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)) {
+        await saveManagedState(actor, { ...state(actor), tolerance: 0 });
+      }
+      ui.notifications.info("All player AG Tolerances were reset.");
+      this.render();
+    });
+  }
+
+  async _updateObject(_event, formData) {
+    for (const actor of game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)) {
+      const current = state(actor);
+      const prefix = `actors.${actor.id}.`;
+      const next = {
+        ...current,
+        burn: Math.max(0, Number(formData[`${prefix}burn`] ?? current.burn)),
+        uses: Math.max(0, Number(formData[`${prefix}uses`] ?? current.uses)),
+        tolerance: Math.min(19, Math.max(0, Number(formData[`${prefix}tolerance`] ?? current.tolerance))),
+        channelUsed: Boolean(formData[`${prefix}channelUsed`])
+      };
+      await saveManagedState(actor, next);
+    }
+    ui.notifications.info("Soul Burn player data saved.");
+    this.render();
+  }
+}
+
 Hooks.once("init", () => {
   game.settings.register("soul-burn", "powerUpSound", {
     name: "Soul Burn Power-Up Sound",
@@ -98,6 +179,14 @@ Hooks.once("init", () => {
     hint: "Browse for, preview, or restore the Soul Burn audio files.",
     icon: "fas fa-volume-high",
     type: SoulBurnSoundSettings,
+    restricted: true
+  });
+  game.settings.registerMenu("soul-burn", "playerManager", {
+    name: "Soul Burn Players",
+    label: "Manage Players",
+    hint: "Review and edit Soul Burn resources, uses, AG Tolerance, and Channel Aether status.",
+    icon: "fas fa-users-gear",
+    type: SoulBurnPlayerManager,
     restricted: true
   });
 });
@@ -200,18 +289,45 @@ function classData(actor) {
     .filter(c => c.faces > 0);
 }
 
+function hasSoulBurnResource(actor) {
+  return String(actor.system.resources?.tertiary?.label ?? "").trim().toLowerCase() === "soul burn";
+}
+
 function maximumBurn(actor) {
-  const sheetMaximum = Number(actor.system.resources?.tertiary?.max ?? 0);
+  const sheetMaximum = hasSoulBurnResource(actor)
+    ? Number(actor.system.resources?.tertiary?.max ?? 0)
+    : 0;
   return sheetMaximum > 0
     ? sheetMaximum
     : classData(actor).reduce((total, c) => total + c.levels * c.faces, 0);
+}
+
+async function initializeSoulBurnResource(actor) {
+  if (!actor || actor.type !== "character") return;
+  const resource = actor.system.resources?.tertiary ?? {};
+  const calculatedMaximum = classData(actor).reduce((total, c) => total + c.levels * c.faces, 0);
+  const updates = {};
+  const changingResource = resource.label !== "Soul Burn";
+  if (changingResource) {
+    updates["system.resources.tertiary.label"] = "Soul Burn";
+    updates["system.resources.tertiary.value"] = 0;
+  }
+  if ((changingResource || !Number(resource.max ?? 0)) && calculatedMaximum > 0) {
+    updates["system.resources.tertiary.max"] = calculatedMaximum;
+  }
+  if (resource.value === null || resource.value === undefined || resource.value === "") {
+    updates["system.resources.tertiary.value"] = 0;
+  }
+  if (Object.keys(updates).length) await actor.update(updates);
 }
 
 function state(actor) {
   const saved = foundry.utils.deepClone(actor.getFlag(SB.scope, SB.key) ?? {});
   return {
     // Soul Burn is the sheet's tertiary resource. Flags only hold metadata.
-    burn: Number(actor.system.resources?.tertiary?.value ?? 0),
+    burn: hasSoulBurnResource(actor)
+      ? Number(actor.system.resources?.tertiary?.value ?? 0)
+      : 0,
     uses: Number(saved.uses ?? 0),
     tolerance: Math.min(19, Number(saved.tolerance ?? 0)),
     active: Boolean(saved.active),
@@ -238,6 +354,16 @@ async function saveState(actor, next) {
   }
   if (Object.keys(updates).length) await actor.update(updates);
   await actor.setFlag(SB.scope, SB.key, metadata);
+}
+
+async function saveMetadataOnly(actor, next) {
+  const { burn: _burn, ...metadata } = next;
+  await actor.setFlag(SB.scope, SB.key, metadata);
+}
+
+async function saveManagedState(actor, next) {
+  if (hasSoulBurnResource(actor)) return saveState(actor, next);
+  return saveMetadataOnly(actor, next);
 }
 
 async function consumeHitDie(actor, promptText = "Choose a Hit Die") {
@@ -413,7 +539,7 @@ async function applyMovement(actor) {
   await actor.createEmbeddedDocuments("ActiveEffect", [{
     label: SB.effectName,
     name: SB.effectName,
-    icon: "icons/magic/holy/meditation-chi-focus-blue.webp",
+    icon: "modules/soul-burn/icons/soul-burn.png",
     changes,
     disabled: false,
     flags: { [SB.scope]: { managed: true } }
@@ -604,8 +730,8 @@ async function fateShift(actor) {
   await endBurn(actor, "Fate Shift");
 }
 
-async function consumeAetherglow(actor) {
-  const current = state(actor);
+async function applyAetherglow(targetActor, sourceActor = targetActor) {
+  const current = state(targetActor);
   const drinkingSound = soundPath("aetherglowSound");
   if (drinkingSound) {
     try {
@@ -615,17 +741,47 @@ async function consumeAetherglow(actor) {
     }
   }
   const roll = await makeRoll("1d20");
+
+  if (!hasSoulBurnResource(targetActor)) {
+    const hp = targetActor.system.attributes?.hp ?? {};
+    const oldHp = Number(hp.value ?? 0);
+    const maxHp = Number(hp.max ?? oldHp);
+    const healing = Math.max(0, Math.min(roll.total, maxHp - oldHp));
+    const next = {
+      ...current,
+      tolerance: Math.min(19, current.tolerance + 1)
+    };
+    if (healing > 0) {
+      await targetActor.update({ "system.attributes.hp.value": oldHp + healing });
+    }
+    await saveMetadataOnly(targetActor, next);
+    await chat(
+      targetActor,
+      "Aetherglow Consumed",
+      `<p><strong>${esc(sourceActor.name)}</strong> gives Aetherglow to <strong>${esc(targetActor.name)}</strong>.</p>
+       <p>No Soul Burn tertiary resource was found, so Aetherglow restores vitality instead.</p>
+       <p><strong>Healing Roll:</strong> ${roll.total}</p>
+       <p><strong>Hit Points Restored:</strong> ${healing}</p>
+       <p><strong>Hit Points:</strong> ${oldHp} → ${oldHp + healing} / ${maxHp}</p>
+       <p><strong>AG Tolerance:</strong> ${current.tolerance} → ${next.tolerance}</p>
+       <p><em>AG Tolerance still rises because the soul remembers every exposure to Aetherglow.</em></p>`,
+      roll
+    );
+    return;
+  }
+
   const removed = Math.max(1, roll.total - current.tolerance);
   const next = {
     ...current,
     burn: Math.max(0, current.burn - removed),
     tolerance: Math.min(19, current.tolerance + 1)
   };
-  await saveState(actor, next);
+  await saveState(targetActor, next);
   await chat(
-    actor,
+    targetActor,
     "Aetherglow Consumed",
-    `<p><strong>${esc(actor.name)}</strong> rolled <strong>${roll.total}</strong> to release Soul Burn.</p>
+    `<p><strong>${esc(sourceActor.name)}</strong> gives Aetherglow to <strong>${esc(targetActor.name)}</strong>.</p>
+     <p><strong>${esc(targetActor.name)}</strong> rolled <strong>${roll.total}</strong> to release Soul Burn.</p>
      <p><strong>AG Tolerance:</strong> ${current.tolerance}</p>
      <p><strong>Aetherglow Blocked:</strong> ${Math.max(0, roll.total - removed)}</p>
      <p><strong>Soul Burn Removed:</strong> ${removed}</p>
@@ -634,6 +790,57 @@ async function consumeAetherglow(actor) {
      <p><em>${toleranceLine(next.tolerance)}</em></p>`,
     roll
   );
+}
+
+async function consumeAetherglow(sourceActor) {
+  const candidates = game.actors
+    .filter(actor => actor.type === "character" && (actor.hasPlayerOwner || actor.id === sourceActor.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (!candidates.length) throw new Error("No player characters are available to receive Aetherglow.");
+
+  const options = candidates.map(actor => {
+    const current = state(actor);
+    const selected = actor.id === sourceActor.id ? "selected" : "";
+    const status = hasSoulBurnResource(actor)
+      ? `Soul Burn ${current.burn}/${maximumBurn(actor)}`
+      : "Heals HP";
+    return `<option value="${actor.id}" ${selected}>${esc(actor.name)} — ${status}, AG ${current.tolerance}</option>`;
+  }).join("");
+  const targetActorId = await choose(
+    "Give Aetherglow",
+    `<p>Who receives this Aetherglow charge?</p>
+     <div class="form-group"><label>Recipient</label><select name="targetActor">${options}</select></div>
+     <p class="notes">The recipient rolls 1d20. Soul Burn users apply AG Tolerance and release at least 1 Soul Burn; other recipients heal from the roll. Every exposure raises AG Tolerance by 1.</p>`,
+    {
+      give: {
+        icon: '<i class="fas fa-flask"></i>',
+        label: "Give & Roll",
+        value: html => html.find('[name="targetActor"]').val()
+      },
+      cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: null }
+    },
+    "give"
+  );
+  if (!targetActorId) return;
+  const targetActor = game.actors.get(targetActorId);
+  if (!targetActor) throw new Error("The selected Aetherglow recipient no longer exists.");
+
+  if (game.user.isGM || targetActor.isOwner) {
+    return applyAetherglow(targetActor, sourceActor);
+  }
+
+  const primaryGM = game.users
+    .filter(user => user.isGM && user.active)
+    .sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (!primaryGM) throw new Error("An active GM is required to give Aetherglow to another player's character.");
+  game.socket.emit("module.soul-burn", {
+    type: "consumeAetherglow",
+    gmId: primaryGM.id,
+    requesterId: game.user.id,
+    sourceActorId: sourceActor.id,
+    targetActorId: targetActor.id
+  });
+  ui.notifications.info(`Aetherglow was offered to ${targetActor.name}. The GM is resolving it.`);
 }
 
 async function resetChannel(actor) {
@@ -701,11 +908,6 @@ async function showPlayerUses(activeActor) {
     content: `<p>Over time, repeated exposure to Aetherglow may dull your sensitivity to it, making it harder to release Soul Burn damage from your soul.</p>
       <p>AG Tolerance is subtracted from any roll made to remove Soul Burn from your body.</p><hr>${entries || "<p>No player characters found.</p>"}`,
     buttons: {
-      glow: {
-        icon: '<i class="fas fa-flask"></i>',
-        label: "Consume Aetherglow",
-        callback: () => consumeAetherglow(activeActor).catch(notifyError)
-      },
       close: { icon: '<i class="fas fa-times"></i>', label: "Close" }
     },
     default: "close",
@@ -730,7 +932,6 @@ async function dashboard(actor, token) {
       <button type="button" data-sb-action="strike"><i class="fas fa-burst"></i> AetherStrike</button>
       <button type="button" data-sb-action="channel"><i class="fas fa-sun"></i> Channel Aether</button>
       <button type="button" data-sb-action="fate"><i class="fas fa-wand-magic-sparkles"></i> Fate Shift</button>
-      <button type="button" data-sb-action="glow"><i class="fas fa-flask"></i> Aetherglow</button>
       <button type="button" data-sb-action="end"><i class="fas fa-stop"></i> End Burn</button>
       ${game.user.isGM ? '<button type="button" data-sb-action="reset"><i class="fas fa-rotate"></i> Reset Channel</button>' : ""}
     </div>` : "";
@@ -796,24 +997,54 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.2"
+    version: "1.0.3"
+  });
+
+  game.socket.on("module.soul-burn", async request => {
+    if (!game.user.isGM || request?.gmId !== game.user.id) return;
+    if (request.type !== "consumeAetherglow") return;
+    const requester = game.users.get(request.requesterId);
+    const sourceActor = game.actors.get(request.sourceActorId);
+    const targetActor = game.actors.get(request.targetActorId);
+    if (!requester || !sourceActor || !targetActor) return;
+    if (!sourceActor.testUserPermission(requester, "OWNER")) {
+      console.warn("Soul Burn | Rejected unauthorized Aetherglow request.", request);
+      return;
+    }
+    try {
+      await applyAetherglow(targetActor, sourceActor);
+    } catch (error) {
+      notifyError(error);
+    }
   });
 
   if (!game.user.isGM) return;
+
+  // Repairs characters that received the feature before this module version.
+  for (const actor of game.actors.filter(a => a.type === "character")) {
+    const hasSoulBurn = actor.items.some(item => item.getFlag("soul-burn", "action") === "activate");
+    if (hasSoulBurn) await initializeSoulBurnResource(actor);
+  }
+
   const command = "game.soulBurn.open();";
   let macro = game.macros.getName("Soul Burn");
   if (!macro) {
     macro = await Macro.create({
       name: "Soul Burn",
       type: "script",
-      img: "icons/magic/holy/meditation-chi-focus-blue.webp",
+      img: "modules/soul-burn/icons/soul-burn.png",
       command,
       ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
       flags: { "soul-burn": { managed: true } }
     });
     ui.notifications.info("Soul Burn | Player macro created.");
-  } else if (macro.getFlag("soul-burn", "managed") && macro.command !== command) {
-    await macro.update({ command });
+  } else if (macro.getFlag("soul-burn", "managed")) {
+    const updates = {};
+    if (macro.command !== command) updates.command = command;
+    if (macro.img !== "modules/soul-burn/icons/soul-burn.png") {
+      updates.img = "modules/soul-burn/icons/soul-burn.png";
+    }
+    if (Object.keys(updates).length) await macro.update(updates);
   }
 });
 
@@ -849,3 +1080,28 @@ Hooks.on("renderChatMessage", (message, html) => {
   const actor = game.actors.get(message.speaker?.actor);
   bindFeatureButtons(message, html, actor);
 });
+
+Hooks.on("createItem", async (item, _options, userId) => {
+  if (userId !== game.user.id) return;
+  if (item.getFlag("soul-burn", "action") !== "activate") return;
+  await initializeSoulBurnResource(item.parent);
+  ui.notifications.info(`${item.parent.name}'s tertiary resource is configured as Soul Burn.`);
+});
+
+// V11/dnd5e 2.4.1 can replace chat-card HTML after render hooks fire.
+// Delegation at document level keeps compendium feature buttons dependable.
+$(document)
+  .off("click.soulBurnGlobal", "[data-soul-burn-action]")
+  .on("click.soulBurnGlobal", "[data-soul-burn-action]", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const button = $(event.currentTarget);
+    const messageId = button.closest(".chat-message").data("message-id");
+    const messageActorId = messageId ? game.messages.get(messageId)?.speaker?.actor : null;
+    const appId = button.closest(".app").data("appid");
+    const app = appId ? ui.windows[appId] : null;
+    const actor = messageActorId
+      ? game.actors.get(messageActorId)
+      : app?.actor ?? app?.item?.parent ?? null;
+    runSoulBurnAction(event.currentTarget.dataset.soulBurnAction, { actor });
+  });

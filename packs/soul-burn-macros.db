@@ -1,1 +1,0 @@
-{"_id":"SoulBurnMacro001","name":"Soul Burn","type":"script","author":"","img":"icons/magic/holy/meditation-chi-focus-blue.webp","scope":"global","command":"game.soulBurn.open();","folder":null,"sort":0,"ownership":{"default":2},"flags":{"soul-burn":{"managed":true}}}

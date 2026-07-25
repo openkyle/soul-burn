@@ -18,7 +18,7 @@ jobs:
         run: |
           mkdir -p dist/soul-burn
           cp module.json LICENSE README.md CHANGELOG.md dist/soul-burn/
-          cp -R scripts styles templates sounds packs dist/soul-burn/
+          cp -R scripts styles templates sounds packs icons dist/soul-burn/
           cd dist
           zip -r soul-burn.zip soul-burn
           cp ../module.json module.json

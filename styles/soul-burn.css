@@ -31,3 +31,52 @@
 .soul-burn-sound-form .sheet-footer {
   margin-top: 1rem;
 }
+
+.soul-burn-player-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) 110px 65px 95px 85px 90px 105px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-light-tertiary);
+}
+
+.soul-burn-player-heading {
+  font-weight: bold;
+  border-bottom: 2px solid var(--color-border-light-primary);
+}
+
+.soul-burn-player-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.soul-burn-player-name img {
+  border: 0;
+  object-fit: cover;
+}
+
+.soul-burn-player-grid input[type="number"] {
+  width: 58px;
+}
+
+.soul-burn-player-controls {
+  display: flex;
+  gap: 3px;
+}
+
+.soul-burn-player-controls button {
+  height: 28px;
+  line-height: 24px;
+  padding: 0 6px;
+}
+
+.soul-burn-danger {
+  display: block;
+  color: #b00020;
+}
+
+.soul-burn-player-manager .sheet-footer {
+  margin-top: 12px;
+}

@@ -124,17 +124,16 @@ Configure the constant at the top of
 
 ## Compendiums
 
-The module includes two compendium packs:
+The module includes one compendium pack:
 
 - **Soul Burn Features** contains Soul Burn, AetherStrike, Channel Aether,
-  Fate Shift, and Aetherglow. Drag these features onto a player character sheet.
+  Fate Shift, and the Aetherglow Charge consumable. Drag these onto a player
+  character sheet.
   Each feature includes a button that runs its module-managed action for the
   owning Actor.
-- **Soul Burn Macros** contains the Soul Burn launcher. Import it or drag it to
-  the hotbar if the automatically created world macro is missing.
 
 In Foundry V11, open the **Compendium Packs** sidebar, expand the **Soul Burn**
-package section, and open either pack. The GM can drag features from the pack
+package section, and open **Soul Burn Features**. The GM can drag features
 directly onto character sheets.
 
 No journal named `H4H` or `SoulBurn` is required. Persistent per-character
@@ -151,6 +150,30 @@ system.resources.tertiary.value
 system.resources.tertiary.max
 system.resources.tertiary.label
 ```
+
+Dropping the Soul Burn feature onto a character automatically labels the
+tertiary resource `Soul Burn` and calculates its maximum when blank. Characters
+who already had the feature are repaired the next time a GM loads the world.
+
+### Aetherglow item
+
+The compendium's **Aetherglow Charge** is the only Aetherglow trigger; there is
+no separate Aetherglow macro. Its chat-card button asks which player character
+receives the charge.
+
+- A recipient with `Soul Burn` as the tertiary resource rolls against Soul
+  Burn using AG Tolerance.
+- A recipient without that resource heals `1d20` HP instead. Their unrelated
+  tertiary resource is never renamed or changed.
+- Every exposure raises AG Tolerance by 1, to a maximum of 19.
+- If a player gives it to an Actor they do not own, an active GM securely
+  performs the document update.
+
+### GM player management
+
+Under **Configure Settings → Module Settings → Soul Burn Players**, the GM can
+review and edit player Soul Burn, lifetime uses, AG Tolerance, and Channel
+Aether status. The screen includes per-player and party-wide tolerance resets.
 
 ## Interface
 

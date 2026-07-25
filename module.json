@@ -2,7 +2,7 @@
   "id": "soul-burn",
   "title": "Soul Burn",
   "description": "A complete player and GM workflow for the Soul Burn homebrew system in Foundry VTT dnd5e.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "compatibility": {
     "minimum": "11",
     "verified": "13"
@@ -25,12 +25,6 @@
       "path": "packs/soul-burn-features.db",
       "type": "Item",
       "system": "dnd5e"
-    },
-    {
-      "name": "soul-burn-macros",
-      "label": "Soul Burn Macros",
-      "path": "packs/soul-burn-macros.db",
-      "type": "Macro"
     }
   ],
   "relationships": {

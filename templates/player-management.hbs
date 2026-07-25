@@ -1,0 +1,51 @@
+<form class="soul-burn-player-manager">
+  <p class="notes">
+    Manage player Soul Burn data. AG Tolerance reduces the amount removed by
+    Aetherglow and increases by one after each use, to a maximum of 19.
+  </p>
+
+  <div class="soul-burn-player-grid soul-burn-player-heading">
+    <span>Character</span>
+    <span>Soul Burn</span>
+    <span>Uses</span>
+    <span>AG Tolerance</span>
+    <span>Channel Used</span>
+    <span>Status</span>
+    <span>Controls</span>
+  </div>
+
+  {{#each actors}}
+  <div class="soul-burn-player-grid">
+    <span class="soul-burn-player-name">
+      <img src="{{img}}" alt="" width="32" height="32">
+      <strong>{{name}}</strong>
+    </span>
+    <span class="form-fields">
+      {{#if usesSoulBurn}}
+      <input type="number" name="actors.{{id}}.burn" value="{{burn}}" min="0">
+      <span>/ {{max}}</span>
+      {{else}}
+      <span title="This Actor does not use Soul Burn as its tertiary resource">No resource</span>
+      {{/if}}
+    </span>
+    <span><input type="number" name="actors.{{id}}.uses" value="{{uses}}" min="0"></span>
+    <span><input type="number" name="actors.{{id}}.tolerance" value="{{tolerance}}" min="0" max="19"></span>
+    <span><input type="checkbox" name="actors.{{id}}.channelUsed" {{checked channelUsed}}></span>
+    <span>
+      {{#if active}}<strong>Active</strong>{{else}}Inactive{{/if}}
+      {{#if burnout}}<strong class="soul-burn-danger">Burnout</strong>{{/if}}
+    </span>
+    <span class="soul-burn-player-controls">
+      <button type="button" data-reset-tolerance="{{id}}" title="Reset AG Tolerance">AG 0</button>
+      <button type="button" data-reset-channel="{{id}}" title="Reset Channel Aether"><i class="fas fa-sun"></i></button>
+    </span>
+  </div>
+  {{else}}
+  <p>No player-owned character Actors were found.</p>
+  {{/each}}
+
+  <footer class="sheet-footer flexrow">
+    <button type="submit"><i class="fas fa-save"></i> Save Changes</button>
+    <button type="button" data-reset-all-tolerance><i class="fas fa-rotate-left"></i> Reset All AG Tolerance</button>
+  </footer>
+</form>
