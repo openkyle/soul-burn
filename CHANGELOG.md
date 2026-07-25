@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.6
+
+- Removed all Channel Aether flags, GM tracking, checkboxes, and reset controls.
+- Channel Aether now has exactly two Item charges; the dnd5e Item is the only
+  source of truth for its remaining uses.
+- Added direct-use charge spending and single-resolution locking for Channel
+  Aether chat cards.
+- Confirmed that only character Actors appear in Player Uses and GM player
+  management; vehicles and NPCs are excluded.
+- Simplified persistent Soul Burn bookkeeping to lifetime Uses and AG Tolerance
+  plus active transformation/combat state.
+
 ## 1.0.5
 
 - Added per-character combat tracking for Soul Burn duration.

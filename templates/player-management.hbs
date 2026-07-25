@@ -9,7 +9,6 @@
     <span>Soul Burn</span>
     <span>Uses</span>
     <span>AG Tolerance</span>
-    <span>Channel Used</span>
     <span>Status</span>
     <span>Controls</span>
   </div>
@@ -30,7 +29,6 @@
     </span>
     <span><input type="number" name="actors.{{id}}.uses" value="{{uses}}" min="0"></span>
     <span><input type="number" name="actors.{{id}}.tolerance" value="{{tolerance}}" min="0" max="19"></span>
-    <span><input type="checkbox" name="actors.{{id}}.channelUsed" {{checked channelUsed}}></span>
     <span>
       {{#if active}}<strong>Active</strong>{{else}}Inactive{{/if}}
       {{#if combatTracking}}<small>{{combatTracking}}</small>{{/if}}
@@ -38,7 +36,6 @@
     </span>
     <span class="soul-burn-player-controls">
       <button type="button" data-reset-tolerance="{{id}}" title="Reset AG Tolerance">AG 0</button>
-      <button type="button" data-reset-channel="{{id}}" title="Reset Channel Aether"><i class="fas fa-sun"></i></button>
     </span>
   </div>
   {{else}}

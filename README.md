@@ -49,7 +49,8 @@ application, and posts the result to chat.
 
 ### Channel Aether
 
-Once per short rest, make a radiant attack against a visible enemy. On a hit,
+Channel Aether has two limited charges. Spend one charge to make a radiant
+attack against a visible enemy. On a hit,
 damage equals one Hit Die plus the character's total level. This does not
 consume a Hit Die.
 
@@ -60,9 +61,8 @@ Attack: 1d20 + chosen ability modifier + proficiency
 Damage: largest class Hit Die + total character level
 ```
 
-Because Foundry/dnd5e rest workflows differ between versions and automation
-modules, a GM resets Channel Aether from the Soul Burn interface after a short
-rest.
+The dnd5e Item tracks its own two charges. Soul Burn does not store a separate
+Channel-used flag and provides no reset control.
 
 ### Fate Shift
 
@@ -225,8 +225,7 @@ The primary dialog intentionally follows the original campaign interface:
 - **SOUL BURN** with a separate risk-confirmation dialog
 
 When the character is actively Soul Burning, the same dialog also exposes
-AetherStrike, Channel Aether, Fate Shift, Aetherglow, and End Burn. GMs receive
-the manual Channel Aether reset control.
+AetherStrike, Channel Aether, Fate Shift, and End Burn.
 
 ## Token and Actor resolution
 
@@ -251,7 +250,6 @@ Stored metadata includes:
 - AG Tolerance
 - Active/inactive state
 - Pending Burnout
-- Channel Aether use
 - Combat start/end rounds
 - Original token image paths for restoration
 

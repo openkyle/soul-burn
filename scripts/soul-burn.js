@@ -118,7 +118,6 @@ class SoulBurnPlayerManager extends FormApplication {
           max: maximumBurn(actor),
           uses: current.uses,
           tolerance: current.tolerance,
-          channelUsed: current.channelUsed,
           active: current.active,
           burnout: current.burnout,
           usesSoulBurn: hasSoulBurnResource(actor),
@@ -140,14 +139,6 @@ class SoulBurnPlayerManager extends FormApplication {
       ui.notifications.info(`${actor.name}'s AG Tolerance was reset.`);
       this.render();
     });
-    html.find("[data-reset-channel]").on("click", async event => {
-      event.preventDefault();
-      const actor = game.actors.get(event.currentTarget.dataset.resetChannel);
-      if (!actor) return;
-      await saveManagedState(actor, { ...state(actor), channelUsed: false });
-      ui.notifications.info(`${actor.name}'s Channel Aether was reset.`);
-      this.render();
-    });
     html.find("[data-reset-all-tolerance]").on("click", async event => {
       event.preventDefault();
       for (const actor of game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)) {
@@ -166,8 +157,7 @@ class SoulBurnPlayerManager extends FormApplication {
         ...current,
         burn: Math.max(0, Number(formData[`${prefix}burn`] ?? current.burn)),
         uses: Math.max(0, Number(formData[`${prefix}uses`] ?? current.uses)),
-        tolerance: Math.min(19, Math.max(0, Number(formData[`${prefix}tolerance`] ?? current.tolerance))),
-        channelUsed: Boolean(formData[`${prefix}channelUsed`])
+        tolerance: Math.min(19, Math.max(0, Number(formData[`${prefix}tolerance`] ?? current.tolerance)))
       };
       await saveManagedState(actor, next);
     }
@@ -228,7 +218,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu("soul-burn", "playerManager", {
     name: "Soul Burn Players",
     label: "Manage Players",
-    hint: "Review and edit Soul Burn resources, uses, AG Tolerance, and Channel Aether status.",
+    hint: "Review and edit player Soul Burn resources, lifetime uses, and AG Tolerance.",
     icon: "fas fa-users-gear",
     type: SoulBurnPlayerManager,
     restricted: true
@@ -393,7 +383,6 @@ function state(actor) {
     tolerance: Math.min(19, Number(saved.tolerance ?? 0)),
     active: Boolean(saved.active),
     burnout: Boolean(saved.burnout),
-    channelUsed: Boolean(saved.channelUsed),
     combatId: saved.combatId ?? null,
     startedRound: saved.startedRound ?? null,
     endsRound: saved.endsRound ?? null,
@@ -734,10 +723,17 @@ async function aetherStrike(actor) {
   await chat(actor, "AetherStrike", `<p>Add <strong>+${roll.total}</strong> to the ${esc(use)} of the triggering attack.</p>`, roll);
 }
 
-async function channelAether(actor) {
-  const current = state(actor);
-  if (current.channelUsed) throw new Error("Channel Aether has already been used since the last short rest/reset.");
+async function spendItemCharge(item, label) {
+  if (!item) throw new Error(`${label} is not present on this character.`);
+  const charges = Number(item.system.uses?.value ?? 0);
+  if (charges <= 0) throw new Error(`${label} has no charges remaining.`);
+  await item.update({ "system.uses.value": charges - 1 });
+}
 
+async function channelAether(actor, { item = null, chargeAlreadySpent = false } = {}) {
+  const channelItem = item ?? actor.items.find(
+    ownedItem => ownedItem.getFlag("soul-burn", "action") === "channel"
+  );
   const hitDice = classData(actor);
   if (!hitDice.length) throw new Error("No class Hit Die was found.");
   const largest = Math.max(...hitDice.map(c => c.faces));
@@ -757,15 +753,16 @@ async function channelAether(actor) {
     "roll"
   );
   if (!abilityKey) return;
+  if (!chargeAlreadySpent) await spendItemCharge(channelItem, "Channel Aether");
 
   const mod = Number(abilities[abilityKey]?.mod ?? 0);
   const prof = Number(actor.system.attributes?.prof ?? 0);
   const attack = await makeRoll("1d20 + @mod + @prof", { mod, prof });
   const damage = await makeRoll(`1d${largest} + ${level}`);
-  await saveState(actor, { ...current, channelUsed: true });
   await chat(actor, "Channel Aether", `<p>Radiant attack: <strong>${attack.total}</strong> vs AC.</p><p>On a hit: <strong>${damage.total} radiant damage</strong> (1d${largest} + ${level}).</p>`);
   await attack.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: "Channel Aether — Attack" });
   await damage.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: "Channel Aether — Radiant Damage" });
+  return true;
 }
 
 async function endBurn(actor, reason = "Soul Burn ends") {
@@ -970,11 +967,7 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
   const targetActor = game.actors.get(targetActorId);
   if (!targetActor) throw new Error("The selected Aetherglow recipient no longer exists.");
 
-  if (!chargeAlreadySpent) {
-    const charges = Number(amulet.system.uses?.value ?? 0);
-    if (charges <= 0) throw new Error("The Holy Amulet of Lux Eterna has no charges remaining.");
-    await amulet.update({ "system.uses.value": charges - 1 });
-  }
+  if (!chargeAlreadySpent) await spendItemCharge(amulet, "The Holy Amulet of Lux Eterna");
 
   if (game.user.isGM || targetActor.isOwner) {
     return applyAetherglow(targetActor, sourceActor);
@@ -995,13 +988,6 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
   return true;
 }
 
-async function resetChannel(actor) {
-  if (!game.user.isGM) throw new Error("Only a GM can manually reset Channel Aether.");
-  const current = state(actor);
-  await saveState(actor, { ...current, channelUsed: false });
-  ui.notifications.info(`Channel Aether reset for ${actor.name}.`);
-}
-
 async function runSoulBurnAction(action, {
   actor = null,
   token = null,
@@ -1014,11 +1000,10 @@ async function runSoulBurnAction(action, {
     const actions = {
       activate: () => activate(subject.actor, subject.token),
       strike: () => aetherStrike(subject.actor),
-      channel: () => channelAether(subject.actor),
+      channel: () => channelAether(subject.actor, { item, chargeAlreadySpent }),
       fate: () => fateShift(subject.actor),
       glow: () => consumeAetherglow(subject.actor, { item, chargeAlreadySpent }),
-      end: () => endBurn(subject.actor),
-      reset: () => resetChannel(subject.actor)
+      end: () => endBurn(subject.actor)
     };
     if (!actions[action]) throw new Error(`Unknown Soul Burn action: ${action}`);
     return await actions[action]();
@@ -1038,8 +1023,8 @@ async function showRules() {
       <p>Your maximum Soul Burn is the total maximum of all your Hit Dice. If current Soul Burn exceeds that maximum, your soul becomes unstable and is permanently destroyed when the current burn period ends. This is Burnout.</p>
       <h2>AetherStrike: Utilizing Hit Dice (1 Action)</h2>
       <p>Once per attack after you hit, spend and roll a Hit Die. Add it to either the attack roll or the damage roll, but not both. Added damage is Radiant.</p>
-      <h2>Channel Aether (1 Action or Reaction / Short Rest)</h2>
-      <p>Make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
+      <h2>Channel Aether (1 Action or Reaction, 2 Charges)</h2>
+      <p>Spend one of the feature's two charges and make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
       <h2>Fate Shift (1 Legendary Action)</h2>
       <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. When complete, Soul Burn ends.</p>
     </div>`,
@@ -1051,7 +1036,7 @@ async function showRules() {
 
 async function showPlayerUses(activeActor) {
   const entries = game.actors
-    .filter(a => a.hasPlayerOwner || a.id === activeActor.id)
+    .filter(a => a.type === "character" && (a.hasPlayerOwner || a.id === activeActor.id))
     .map(a => {
       const s = state(a);
       return `<div style="margin-bottom:12px">
@@ -1094,7 +1079,6 @@ async function dashboard(actor, token) {
       <button type="button" data-sb-action="channel"><i class="fas fa-sun"></i> Channel Aether</button>
       <button type="button" data-sb-action="fate"><i class="fas fa-wand-magic-sparkles"></i> Fate Shift</button>
       <button type="button" data-sb-action="end"><i class="fas fa-stop"></i> End Burn</button>
-      ${game.user.isGM ? '<button type="button" data-sb-action="reset"><i class="fas fa-rotate"></i> Reset Channel</button>' : ""}
     </div>` : "";
 
   const action = await new Promise(resolve => {
@@ -1158,7 +1142,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.5"
+    version: "1.0.6"
   });
 
   game.socket.on("module.soul-burn", async request => {
@@ -1211,10 +1195,16 @@ Hooks.once("ready", async () => {
 });
 
 Hooks.on("renderChatMessage", (message, html) => {
-  if (!message.getFlag("soul-burn", "aetherglowResolved")) return;
-  html.find('[data-soul-burn-action="glow"]')
-    .prop("disabled", true)
-    .html('<i class="fas fa-check"></i> Aetherglow Used');
+  const resolved = [
+    ["glow", "aetherglowResolved", "Aetherglow Used"],
+    ["channel", "channelResolved", "Channel Aether Used"]
+  ];
+  for (const [action, flag, label] of resolved) {
+    if (!message.getFlag("soul-burn", flag)) continue;
+    html.find(`[data-soul-burn-action="${action}"]`)
+      .prop("disabled", true)
+      .html(`<i class="fas fa-check"></i> ${label}`);
+  }
 });
 
 Hooks.on("createItem", async (item, _options, userId) => {
@@ -1266,10 +1256,12 @@ $(document)
     event.stopPropagation();
     const button = $(event.currentTarget);
     const action = event.currentTarget.dataset.soulBurnAction;
+    const limitedAction = ["glow", "channel"].includes(action);
+    const resolvedFlag = action === "glow" ? "aetherglowResolved" : "channelResolved";
     const messageId = button.closest(".chat-message").data("message-id");
     const message = messageId ? game.messages.get(messageId) : null;
-    if (action === "glow" && message?.getFlag("soul-burn", "aetherglowResolved")) {
-      return ui.notifications.warn("This Aetherglow chat-card charge has already been used.");
+    if (limitedAction && message?.getFlag("soul-burn", resolvedFlag)) {
+      return ui.notifications.warn(`This ${action === "glow" ? "Aetherglow" : "Channel Aether"} chat-card charge has already been used.`);
     }
     const messageActorId = message?.speaker?.actor;
     const appId = button.closest(".app").data("appid");
@@ -1280,26 +1272,26 @@ $(document)
     const rowItemId = button.closest("[data-item-id]").data("item-id");
     const item = app?.item
       ?? (rowItemId && actor ? actor.items.get(rowItemId) : null)
-      ?? (action === "glow" && actor
-        ? actor.items.find(ownedItem => ownedItem.getFlag("soul-burn", "action") === "glow")
+      ?? (limitedAction && actor
+        ? actor.items.find(ownedItem => ownedItem.getFlag("soul-burn", "action") === action)
         : null);
     button.prop("disabled", true);
     try {
       const completed = await runSoulBurnAction(action, {
         actor,
         item,
-        chargeAlreadySpent: action === "glow" && Boolean(message)
+        chargeAlreadySpent: limitedAction && Boolean(message)
       });
-      if (action === "glow" && completed === true && message) {
+      if (limitedAction && completed === true && message) {
         try {
-          await message.setFlag("soul-burn", "aetherglowResolved", true);
-          button.html('<i class="fas fa-check"></i> Aetherglow Used');
+          await message.setFlag("soul-burn", resolvedFlag, true);
+          button.html(`<i class="fas fa-check"></i> ${action === "glow" ? "Aetherglow Used" : "Channel Aether Used"}`);
         } catch (error) {
-          console.warn("Soul Burn | Could not lock the used Aetherglow chat card.", error);
+          console.warn("Soul Burn | Could not lock the used limited-use chat card.", error);
         }
       }
     } finally {
-      if (action !== "glow" || !message?.getFlag("soul-burn", "aetherglowResolved")) {
+      if (!limitedAction || !message?.getFlag("soul-burn", resolvedFlag)) {
         button.prop("disabled", false);
       }
     }
