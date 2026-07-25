@@ -7,7 +7,8 @@
  */
 
 const SB = {
-  scope: "world",
+  moduleId: "soul-burn",
+  stateScope: "world",
   key: "soulBurn",
   effectName: "Soul Burn",
   pack: "soul-burn.soul-burn-features",
@@ -122,7 +123,7 @@ class SoulBurnPlayerManager extends FormApplication {
       template: "modules/soul-burn/templates/player-management.hbs",
       width: 820,
       height: "auto",
-      closeOnSubmit: false
+      closeOnSubmit: true
     });
   }
 
@@ -142,6 +143,7 @@ class SoulBurnPlayerManager extends FormApplication {
           tolerance: current.tolerance,
           active: current.active,
           burnout: current.burnout,
+          transformedImage: current.transformedImage,
           usesSoulBurn: hasSoulBurnResource(actor),
           combatTracking: current.active && current.combatId && current.startedRound !== null
             ? `Rounds ${current.startedRound}–${Number(current.endsRound) - 1}`
@@ -153,12 +155,39 @@ class SoulBurnPlayerManager extends FormApplication {
 
   activateListeners(html) {
     super.activateListeners(html);
-    html.find("[data-reset-tolerance]").on("click", async event => {
+    html.find("[data-clear-player]").on("click", async event => {
       event.preventDefault();
-      const actor = game.actors.get(event.currentTarget.dataset.resetTolerance);
+      const actor = game.actors.get(event.currentTarget.dataset.clearPlayer);
       if (!actor) return;
-      await saveManagedState(actor, { ...state(actor), tolerance: 0 });
-      ui.notifications.info(`${actor.name}'s AGT was reset.`);
+      const current = state(actor);
+      if (current.active) {
+        return ui.notifications.warn(`End ${actor.name}'s Soul Burn before clearing their resource.`);
+      }
+      const confirmed = await Dialog.confirm({
+        title: `Clear ${actor.name}'s Soul Burn Data`,
+        content: `<p>This resets <strong>${esc(actor.name)}</strong>'s AGT and removes Soul Burn from the tertiary resource slot.</p>
+          <p>Lifetime Uses and the configured transformation image are preserved.</p>`
+      });
+      if (!confirmed) return;
+      await actor.update({
+        "system.resources.tertiary.label": "",
+        "system.resources.tertiary.value": null,
+        "system.resources.tertiary.max": null
+      });
+      await saveMetadataOnly(actor, {
+        ...current,
+        burn: 0,
+        tolerance: 0,
+        resourceCleared: true
+      });
+      ui.notifications.info(`${actor.name}'s AGT and Soul Burn resource were cleared.`);
+      this.render();
+    });
+    html.find("[data-transform-image]").on("click", async event => {
+      event.preventDefault();
+      const actor = game.actors.get(event.currentTarget.dataset.transformImage);
+      if (!actor) return;
+      await configureActorTransformImage(actor);
       this.render();
     });
     html.find("[data-reset-all-tolerance]").on("click", async event => {
@@ -172,19 +201,59 @@ class SoulBurnPlayerManager extends FormApplication {
   }
 
   async _updateObject(_event, formData) {
+    const activeActorsKept = [];
     for (const actor of game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)) {
       const current = state(actor);
       const prefix = `actors.${actor.id}.`;
+      const burnKey = `${prefix}burn`;
+      const hasBurnInput = Object.prototype.hasOwnProperty.call(formData, burnKey);
+      const submittedBurn = hasBurnInput
+        ? Math.max(0, Number(formData[burnKey]) || 0)
+        : current.burn;
       const next = {
         ...current,
-        burn: Math.max(0, Number(formData[`${prefix}burn`] ?? current.burn)),
+        burn: submittedBurn,
         uses: Math.max(0, Number(formData[`${prefix}uses`] ?? current.uses)),
         tolerance: Math.min(19, Math.max(0, Number(formData[`${prefix}tolerance`] ?? current.tolerance)))
       };
-      await saveManagedState(actor, next);
+
+      if (hasBurnInput && submittedBurn === 0 && !current.active) {
+        await actor.update({
+          "system.resources.tertiary.label": "",
+          "system.resources.tertiary.value": null,
+          "system.resources.tertiary.max": null
+        });
+        await saveMetadataOnly(actor, {
+          ...next,
+          burn: 0,
+          resourceCleared: true
+        });
+        continue;
+      }
+
+      if (hasBurnInput && submittedBurn === 0 && current.active) {
+        activeActorsKept.push(actor.name);
+        await saveState(actor, {
+          ...next,
+          burn: current.burn,
+          resourceCleared: false
+        });
+        continue;
+      }
+
+      if (hasBurnInput) {
+        await saveState(actor, { ...next, resourceCleared: false });
+      } else {
+        await saveMetadataOnly(actor, next);
+      }
+    }
+
+    if (activeActorsKept.length) {
+      ui.notifications.warn(
+        `Soul Burn was not removed from active character${activeActorsKept.length === 1 ? "" : "s"}: ${activeActorsKept.join(", ")}. End the active burn first.`
+      );
     }
     ui.notifications.info("Soul Burn player data saved.");
-    this.render();
   }
 }
 
@@ -427,7 +496,7 @@ async function initializeSoulBurnResource(actor) {
 }
 
 function state(actor) {
-  const saved = foundry.utils.deepClone(actor.getFlag(SB.scope, SB.key) ?? {});
+  const saved = foundry.utils.deepClone(actor.getFlag(SB.stateScope, SB.key) ?? {});
   return {
     // Soul Burn is the sheet's tertiary resource. Flags only hold metadata.
     burn: hasSoulBurnResource(actor)
@@ -437,6 +506,8 @@ function state(actor) {
     tolerance: Math.min(19, Number(saved.tolerance ?? 0)),
     active: Boolean(saved.active),
     burnout: Boolean(saved.burnout),
+    resourceCleared: Boolean(saved.resourceCleared),
+    transformedImage: String(saved.transformedImage ?? ""),
     combatId: saved.combatId ?? null,
     startedRound: saved.startedRound ?? null,
     endsRound: saved.endsRound ?? null,
@@ -446,12 +517,97 @@ function state(actor) {
   };
 }
 
+function defaultTokenImage(actor) {
+  const current = state(actor);
+  const savedOriginal = Object.values(current.originalImages ?? {}).find(Boolean);
+  const activeToken = actorTokens(actor)[0];
+  return String(
+    savedOriginal
+    ?? activeToken?.document?.texture?.src
+    ?? actor.prototypeToken?.texture?.src
+    ?? actor.img
+    ?? ""
+  );
+}
+
+async function configureActorTransformImage(actor) {
+  const current = state(actor);
+  const original = defaultTokenImage(actor);
+  const selected = await Dialog.wait({
+    title: `${actor.name} — Soul Burn Transformation`,
+    content: `<div class="soul-burn-transform-editor">
+      <div class="form-group stacked">
+        <label>Current Default Token Image</label>
+        <div class="form-fields">
+          <input type="text" name="defaultImage" value="${esc(original)}" readonly>
+        </div>
+        <p class="hint">Automatically detected from the active token, prototype token, or Actor portrait.</p>
+      </div>
+      <div class="form-group stacked">
+        <label>Soul Burn Transformed Image</label>
+        <div class="form-fields">
+          <input type="text" name="transformedImage" value="${esc(current.transformedImage)}" placeholder="Choose an image or video">
+          <button type="button" data-browse-transform title="Browse">
+            <i class="fas fa-folder-open"></i>
+          </button>
+        </div>
+        <p class="hint">This character-specific image replaces the token while Soul Burn is active.</p>
+      </div>
+    </div>`,
+    buttons: {
+      save: {
+        icon: '<i class="fas fa-save"></i>',
+        label: "Save",
+        callback: html => String(html.find('[name="transformedImage"]').val() ?? "").trim()
+      },
+      clear: {
+        icon: '<i class="fas fa-eraser"></i>',
+        label: "Use Legacy Default",
+        callback: () => ""
+      },
+      cancel: {
+        icon: '<i class="fas fa-times"></i>',
+        label: "Cancel",
+        callback: () => null
+      }
+    },
+    default: "save",
+    render: html => {
+      html.find("[data-browse-transform]").on("click", event => {
+        event.preventDefault();
+        const input = html.find('[name="transformedImage"]');
+        new FilePicker({
+          type: "imagevideo",
+          current: input.val(),
+          callback: path => input.val(path).trigger("change")
+        }).render(true);
+      });
+    },
+    close: () => null
+  });
+  if (selected === null) return;
+  await saveMetadataOnly(actor, {
+    ...current,
+    transformedImage: selected
+  });
+  ui.notifications.info(
+    selected
+      ? `${actor.name}'s Soul Burn transformation image was saved.`
+      : `${actor.name} will use the legacy Soul Burn transformation path.`
+  );
+}
+
+function soulBurnItemFlag(item, key) {
+  return item?.getFlag?.(SB.moduleId, key)
+    ?? item?.getFlag?.(SB.stateScope, key);
+}
+
 function isTemporarySoulBurnAction(item) {
-  return Boolean(item?.getFlag(SB.scope, "temporaryAction"));
+  return Boolean(soulBurnItemFlag(item, "temporaryAction"));
 }
 
 function normalizedSoulBurnAction(item) {
-  const flagged = item?.getFlag?.(SB.scope, "action");
+  const flagged = soulBurnItemFlag(item, "action");
   if (flagged === "strike") return "surge";
   if (SB.temporaryActions.includes(flagged)) return flagged;
 
@@ -543,7 +699,7 @@ async function ensureTemporarySoulBurnActions(actor) {
     .filter(item =>
       normalizedSoulBurnAction(item) === "surge"
       && (
-        item.getFlag(SB.scope, "action") === "strike"
+        soulBurnItemFlag(item, "action") === "strike"
         || item.name === "AetherStrike"
       )
     )
@@ -566,7 +722,7 @@ async function ensureTemporarySoulBurnActions(actor) {
   for (const item of managed) {
     const action = normalizedSoulBurnAction(item);
     const legacySurge = action === "surge" && (
-      item.getFlag(SB.scope, "action") !== "surge"
+      soulBurnItemFlag(item, "action") !== "surge"
       || item.name !== "AetherSurge"
     );
     if (!SB.temporaryActions.includes(action) || legacySurge || keep.has(action)) {
@@ -596,8 +752,8 @@ async function ensureTemporarySoulBurnActions(actor) {
       const data = source.toObject();
       delete data._id;
       data.flags ??= {};
-      data.flags[SB.scope] = {
-        ...(data.flags[SB.scope] ?? {}),
+      data.flags[SB.moduleId] = {
+        ...(data.flags[SB.moduleId] ?? {}),
         action,
         temporaryAction: true
       };
@@ -620,6 +776,12 @@ async function ensureTemporarySoulBurnActions(actor) {
 
   const updates = [...keep.entries()].map(([action, item]) => {
     const data = configureRegularSoulBurnItem(item.toObject(), action, actor);
+    data.flags ??= {};
+    data.flags[SB.moduleId] = {
+      ...(data.flags[SB.moduleId] ?? {}),
+      action,
+      temporaryAction: true
+    };
     data._id = item.id;
     return data;
   });
@@ -686,7 +848,7 @@ function renderActorSheetSoon(actor) {
 }
 
 function soulBurnFeature(actor) {
-  return actor?.items?.find(item => item.getFlag(SB.scope, "action") === "activate") ?? null;
+  return actor?.items?.find(item => soulBurnItemFlag(item, "action") === "activate") ?? null;
 }
 
 async function syncSoulBurnFeature(actor, active = state(actor).active) {
@@ -737,12 +899,12 @@ async function saveState(actor, next) {
       classData(actor).reduce((total, c) => total + c.levels * c.faces, 0);
   }
   if (Object.keys(updates).length) await actor.update(updates);
-  await actor.setFlag(SB.scope, SB.key, metadata);
+  await actor.setFlag(SB.stateScope, SB.key, metadata);
 }
 
 async function saveMetadataOnly(actor, next) {
   const { burn: _burn, ...metadata } = next;
-  await actor.setFlag(SB.scope, SB.key, metadata);
+  await actor.setFlag(SB.stateScope, SB.key, metadata);
 }
 
 async function saveManagedState(actor, next) {
@@ -1244,15 +1406,27 @@ async function playAnimation(token, nextState) {
   const original = token.document.texture?.src ?? token.document.img;
   nextState.originalImages[token.document.uuid] ??= original;
   const imageName = cleanName(token.actor.name).replace(/\s+/g, "");
+  const transformedImage = String(nextState.transformedImage ?? "").trim()
+    || `${SB.transformedTokenRoot}/${encodeURIComponent(imageName)}.webp`;
   try {
-    await token.document.update({ "texture.src": `${SB.transformedTokenRoot}/${encodeURIComponent(imageName)}.webp` });
+    await token.document.update({ "texture.src": transformedImage });
   } catch (error) {
     console.warn("Soul Burn | Transformed token image unavailable.", error);
   }
 }
 
+function isManagedSoulBurnEffect(effect) {
+  return Boolean(
+    effect?.getFlag(SB.moduleId, "managed")
+    ?? effect?.getFlag(SB.stateScope, "managed")
+  );
+}
+
 async function applyMovement(actor) {
-  const existing = actor.effects.find(e => (e.name ?? e.label) === SB.effectName && e.getFlag(SB.scope, "managed"));
+  const existing = actor.effects.find(e =>
+    (e.name ?? e.label) === SB.effectName
+    && isManagedSoulBurnEffect(e)
+  );
   if (existing) return;
 
   const movement = actor.system.attributes?.movement ?? {};
@@ -1271,7 +1445,7 @@ async function applyMovement(actor) {
     icon: "modules/soul-burn/icons/soul-burn.png",
     changes,
     disabled: false,
-    flags: { [SB.scope]: { managed: true } }
+    flags: { [SB.moduleId]: { managed: true } }
   }]);
 }
 
@@ -1295,7 +1469,7 @@ async function removeVisuals(actor, savedState) {
   }
 
   const effects = actor.effects
-    .filter(e => (e.name ?? e.label) === SB.effectName && e.getFlag(SB.scope, "managed"))
+    .filter(e => (e.name ?? e.label) === SB.effectName && isManagedSoulBurnEffect(e))
     .map(e => e.id);
   if (effects.length) await actor.deleteEmbeddedDocuments("ActiveEffect", effects);
 }
@@ -1352,7 +1526,10 @@ async function activate(actor, token) {
     ) || 1
   );
   const staleMovementEffects = actor.effects
-    .filter(effect => (effect.name ?? effect.label) === SB.effectName && effect.getFlag(SB.scope, "managed"))
+    .filter(effect =>
+      (effect.name ?? effect.label) === SB.effectName
+      && isManagedSoulBurnEffect(effect)
+    )
     .map(effect => effect.id);
   if (staleMovementEffects.length) {
     await actor.deleteEmbeddedDocuments("ActiveEffect", staleMovementEffects);
@@ -1365,6 +1542,7 @@ async function activate(actor, token) {
     ...current,
     burn: current.burn + roll.total,
     uses: current.uses + 1,
+    resourceCleared: false,
     active: true,
     burnout: current.burn + roll.total > max,
     combatId: trackCombat ? combat.id : null,
@@ -2039,7 +2217,7 @@ function installSoulBurnSheetInterception(app, element) {
     const row = event.target?.closest?.("[data-item-id]");
     if (!row || !root.contains(row)) return;
     const item = actor.items.get(row.dataset.itemId);
-    if (item?.getFlag(SB.scope, "action") !== "activate") return;
+    if (soulBurnItemFlag(item, "action") !== "activate") return;
 
     // Preserve explicit GM maintenance controls while routing every ordinary
     // player-facing launch control to the Soul Burn dashboard.
@@ -2082,7 +2260,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.20"
+    version: "1.0.21"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -2143,7 +2321,9 @@ Hooks.once("ready", async () => {
   for (const actor of game.actors.filter(a => a.type === "character")) {
     const hasSoulBurn = actor.items.some(item => item.getFlag("soul-burn", "action") === "activate");
     await removeLegacyTidySoulBurnTabSelection(actor);
-    if (hasSoulBurn) await initializeSoulBurnResource(actor);
+    if (hasSoulBurn && !state(actor).resourceCleared) {
+      await initializeSoulBurnResource(actor);
+    }
     if (state(actor).active) {
       await ensureTemporarySoulBurnActions(actor);
     }
@@ -2196,7 +2376,7 @@ function scheduleSoulBurnDashboard(document) {
   const item = document?.documentName === "Item" ? document : document?.item;
   const actor = item?.actor
     ?? (item?.parent?.documentName === "Actor" ? item.parent : null);
-  if (item?.getFlag(SB.scope, "action") !== "activate" || !actor) return false;
+  if (soulBurnItemFlag(item, "action") !== "activate" || !actor) return false;
 
   const key = item.uuid;
   const now = Date.now();
@@ -2227,6 +2407,11 @@ function interceptSoulBurnUse(document) {
 Hooks.on("dnd5e.preUseItem", item => interceptSoulBurnUse(item));
 Hooks.on("dnd5e.preUseActivity", activity => interceptSoulBurnUse(activity));
 
+// This is the earliest supported launch hook in the supplied Tidy5e build.
+// Returning false here prevents Tidy from calling Item#use at all, making the
+// dashboard—not a chat card—the authoritative entry point.
+Hooks.on("tidy5e-sheet.actorPreUseItem", item => interceptSoulBurnUse(item));
+
 // Tidy's item-name click in dnd5e 2.4.1 calls Item#displayCard directly,
 // bypassing Item#use and therefore preUseItem. In that system version the
 // preDisplayCard hook is called with callAll, so returning false is ignored;
@@ -2255,7 +2440,7 @@ Hooks.on("preCreateChatMessage", (_message, data) => {
   const actor = (data.speaker?.actor ? game.actors.get(data.speaker.actor) : null)
     ?? (data.speaker?.token ? canvas.tokens?.get(data.speaker.token)?.actor : null);
   const item = actor?.items.get(itemId);
-  if (item?.getFlag(SB.scope, "action") !== "activate") return true;
+  if (soulBurnItemFlag(item, "action") !== "activate") return true;
 
   scheduleSoulBurnDashboard(item);
   return false;
@@ -2321,6 +2506,10 @@ Hooks.on("dnd5e.postUseActivity", activity => resolveNativeSoulBurnItemUse(activ
 Hooks.on("createItem", async (item, _options, userId) => {
   if (userId !== game.user.id) return;
   if (item.getFlag("soul-burn", "action") !== "activate") return;
+  await saveMetadataOnly(item.parent, {
+    ...state(item.parent),
+    resourceCleared: false
+  });
   await initializeSoulBurnResource(item.parent);
   await syncSoulBurnFeature(item.parent, state(item.parent).active);
   ui.notifications.info(`${item.parent.name}'s tertiary resource is configured as Soul Burn.`);
@@ -2328,7 +2517,7 @@ Hooks.on("createItem", async (item, _options, userId) => {
 
 Hooks.on("preUpdateItem", (item, _changes, options, userId) => {
   if (options?.soulBurnInternal) return true;
-  if (!item.parent || item.getFlag(SB.scope, "action") !== "activate") return true;
+  if (!item.parent || soulBurnItemFlag(item, "action") !== "activate") return true;
   const user = game.users.get(userId);
   if (user?.isGM) return true;
   if (userId === game.user.id) {
@@ -2340,7 +2529,7 @@ Hooks.on("preUpdateItem", (item, _changes, options, userId) => {
 Hooks.on("preDeleteItem", (item, options, userId) => {
   if (options?.soulBurnInternal) return true;
   if (!item.parent) return true;
-  const managedBySoulBurn = item.getFlag(SB.scope, "action") === "activate"
+  const managedBySoulBurn = soulBurnItemFlag(item, "action") === "activate"
     || isTemporarySoulBurnAction(item);
   if (!managedBySoulBurn) return true;
   const user = game.users.get(userId);
@@ -2357,7 +2546,7 @@ Hooks.on("renderItemSheet", (app, html) => {
     game.user.isGM
     || !item?.parent
     || (
-      item.getFlag(SB.scope, "action") !== "activate"
+      soulBurnItemFlag(item, "action") !== "activate"
       && !isTemporarySoulBurnAction(item)
     )
   ) return;

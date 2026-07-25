@@ -189,6 +189,11 @@ initial dnd5e Item card. Cancelling leaves chat unchanged. Completing activation
 posts one button-free Soul Burn result card with the Hit Die roll, duration,
 movement, Soul Burn total, and combat-round details.
 
+The interaction is stopped at Tidy5e's cancellable pre-use hook before
+`Item#use` executes. dnd5e display and message-creation hooks remain as
+fallbacks. Actor state uses `flags.world.soulBurn`; module Item metadata uses
+`flags.soul-burn`, and these namespaces are intentionally separate.
+
 ### Holy Amulet of Lux Eterna
 
 The compendium's Legendary **Holy Amulet of Lux Eterna** equipment is the only
@@ -216,7 +221,18 @@ excluded.
 Under **Configure Settings → Module Settings → Soul Burn Players**, the GM can
 review and edit player Soul Burn, lifetime uses, and AGT. Active entries also
 show their individually tracked combat rounds. The screen includes per-player
-and party-wide AGT resets.
+and party-wide AGT resets. Each row also includes a character-specific
+transformation-image editor. It automatically displays the current token or
+prototype-token image and provides a Foundry browser for the Soul Burn image.
+
+The per-character **Clear AGT** control resets AGT and blanks the tertiary Soul
+Burn resource for an inactive character. It preserves lifetime Uses and the
+configured transformation image. Starting Soul Burn again restores the resource
+only after the player confirms activation.
+
+Saving an inactive character at **0 Soul Burn** also removes that tertiary
+resource from their sheet. **Save Changes** closes Player Management after the
+update. Active burns must be ended before their resource can be cleared.
 
 ### Combat duration and ending
 

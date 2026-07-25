@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0.21
+
+- Fixed the root cause of the persistent chat-card-first flow: Actor state is
+  stored under `flags.world.soulBurn`, while Item action metadata is stored
+  under `flags.soul-burn`. Previous interception code incorrectly queried Item
+  actions through the Actor-state namespace.
+- Separated the module and state flag namespaces throughout the implementation.
+- Added the supplied Tidy5e build's cancellable
+  `tidy5e-sheet.actorPreUseItem` hook as the primary character-sheet entry
+  point. Tidy is now stopped before it can call `Item#use`.
+- Retained dnd5e use/display and message-creation guards as secondary defenses.
+- Preserves compatibility with temporary action Items and Active Effects
+  created by earlier versions under the legacy `world` namespace.
+- Added a character-specific transformation-image editor to Soul Burn Player
+  Management. It shows the detected default token image and provides a Foundry
+  image/video browser for the transformed token.
+- Replaced the per-row AGT reset with **Clear AGT**, which also blanks that
+  inactive character's tertiary Soul Burn resource while preserving lifetime
+  Uses and their transformation-image choice.
+- Saving an inactive character with 0 Soul Burn now blanks the tertiary
+  resource label, value, and maximum instead of leaving an empty Soul Burn
+  tracker on the character sheet.
+- **Save Changes** now closes Soul Burn Player Management after the update.
+  Active Soul Burn sessions are protected from accidental resource removal.
+
 ## 1.0.20
 
 - Keeps the activating character, TokenMagic fire, and nearby Soul Burn

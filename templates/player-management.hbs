@@ -35,7 +35,17 @@
       {{#if burnout}}<strong class="soul-burn-danger">Burnout</strong>{{/if}}
     </span>
     <span class="soul-burn-player-controls">
-      <button type="button" data-reset-tolerance="{{id}}" title="Reset AGT">AGT 0</button>
+      <button type="button" data-clear-player="{{id}}" title="Clear AGT and remove the Soul Burn resource">
+        <i class="fas fa-eraser"></i> Clear AGT
+      </button>
+      <button
+        type="button"
+        class="soul-burn-transform-button"
+        data-transform-image="{{id}}"
+        title="{{#if transformedImage}}Change Soul Burn transformation image{{else}}Choose Soul Burn transformation image{{/if}}"
+      >
+        <i class="fas fa-image"></i>
+      </button>
     </span>
   </div>
   {{else}}

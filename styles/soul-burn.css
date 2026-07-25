@@ -101,7 +101,7 @@
 
 .soul-burn-player-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) 120px 75px 105px 110px 105px;
+  grid-template-columns: minmax(180px, 2fr) 120px 75px 105px 110px 165px;
   align-items: center;
   gap: 6px;
   padding: 6px 0;
@@ -137,6 +137,22 @@
   height: 28px;
   line-height: 24px;
   padding: 0 6px;
+}
+
+.soul-burn-player-controls .soul-burn-transform-button {
+  flex: 0 0 32px;
+  padding: 0;
+}
+
+.soul-burn-transform-editor .form-fields input {
+  flex: 1;
+}
+
+.soul-burn-transform-editor [data-browse-transform] {
+  flex: 0 0 36px;
+  height: 32px;
+  margin: 0 0 0 4px;
+  padding: 0;
 }
 
 .soul-burn-danger {
