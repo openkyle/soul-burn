@@ -13,11 +13,13 @@
       {{#each actions}}
         <div class="soul-burn-inventory-row item" data-item-id="{{id}}">
           <img src="{{img}}" alt="{{name}}">
-          <button type="button" class="soul-burn-inventory-name" data-sb-item-use="{{id}}" title="Use {{name}}">
+          <button type="button" class="soul-burn-inventory-name" data-sb-item-toggle="{{id}}"
+                  aria-expanded="false" title="Show {{name}} details">
+            <i class="fas fa-chevron-right soul-burn-inventory-item-chevron"></i>
             {{name}}
           </button>
           <span class="soul-burn-inventory-uses">
-            {{#if hasUses}}{{uses}} / {{maxUses}}{{/if}}
+            {{#if hasUses}}{{uses}} / {{maxUses}}{{#if usesLabel}} {{usesLabel}}{{/if}}{{/if}}
           </span>
           <span class="soul-burn-inventory-activation">{{activation}}</span>
           <span class="soul-burn-inventory-controls">
@@ -29,6 +31,17 @@
             </button>
           </span>
         </div>
+        {{#if hasDetails}}
+          <div class="soul-burn-inventory-details" data-sb-item-details="{{id}}" hidden>
+            <div class="soul-burn-inventory-detail-meta">
+              {{#if requirements}}<strong>Requires:</strong> {{requirements}}{{/if}}
+              {{#if range}}<strong>Range:</strong> {{range}}{{/if}}
+            </div>
+            {{#if description}}
+              <div class="soul-burn-inventory-description">{{{description}}}</div>
+            {{/if}}
+          </div>
+        {{/if}}
       {{else}}
         <p class="notification warning">Soul Burn actions are being prepared.</p>
       {{/each}}

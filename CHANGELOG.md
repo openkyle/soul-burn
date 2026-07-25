@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.29
+
+- Channel Aether now has uses equal to the character's proficiency bonus and
+  regains all uses on a short or long rest.
+- Removed the module-added Channel Aether chat button and ability-selection
+  dialog. Channel Aether now uses only dnd5e's native Attack and Damage
+  controls.
+- AetherSurge continues to expend one real class Hit Die per use. Its active
+  Inventory row now displays current and maximum Hit Dice.
+- Soul Burn Item names now expand inline Tidy-style details containing their
+  requirements, ranges, and descriptions. The dice icon remains the use
+  control, while the information icon opens the full locked Item sheet.
+- Ending Soul Burn now restores every recorded transformed TokenDocument by
+  UUID, including a token no longer on the currently viewed scene.
+
 ## 1.0.28
 
 - Updated the managed Exit Soul Burn Item with the complete immediate

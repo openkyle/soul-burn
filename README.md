@@ -55,10 +55,10 @@ damage roll described by the feature.
 
 ### Channel Aether
 
-Channel Aether has two limited charges. Spend one charge to make a radiant
-attack against a visible enemy. On a hit,
+Channel Aether has a number of uses equal to the character's proficiency bonus.
+Spend one use to make a radiant attack against a visible enemy. On a hit,
 damage equals one Hit Die plus the character's total level. This does not
-consume a Hit Die.
+consume a Hit Die. All uses return on a short or long rest.
 
 The temporary Item uses the character's normal spellcasting attack and rolls:
 
@@ -67,8 +67,8 @@ Attack: 1d20 + spellcasting ability modifier + proficiency
 Damage: largest class Hit Die + total character level
 ```
 
-The dnd5e Item tracks its own two charges. Soul Burn does not store a separate
-Channel-used flag and provides no reset control.
+The native dnd5e Item tracks its own proficiency-based uses. Soul Burn does not
+store a separate Channel-used flag and provides no reset control.
 
 ### Temporary Soul Burn Item section
 
@@ -83,6 +83,17 @@ information icon opens the locked Item sheet for details. Native Item use
 handles attack rolls, Channel Aether charges, and other system consumption;
 module hooks handle AetherSurge's Hit Die and the Fate Shift/Exit ending
 workflows.
+
+Channel Aether uses dnd5e's native attack and damage workflow. It has a number
+of uses equal to the actor's proficiency bonus and refreshes on a short or long
+rest; the module does not add a second chat-card button or ability-selection
+dialog. AetherSurge expends one real class Hit Die after each successful native
+Item use, and its Inventory row shows the actor's remaining and maximum Hit
+Dice.
+
+Clicking an Item name expands an inline Tidy-style detail panel with its
+requirements, range, and description. Only the dice icon uses the Item. The
+information icon opens the complete locked Item sheet.
 
 The four managed copies are hidden from duplicate Actions and Features
 listings. When Soul Burn ends—through Exit Soul Burn, Fate Shift, or combat
@@ -101,6 +112,10 @@ the duration removes 1 point from the character's Soul Burn resource. The
 current round is already in use and is not counted. The reduction is clamped
 at zero. Ending Soul Burn outside combat—or after its tracked combat is no
 longer active—does not reduce the resource.
+
+When Soul Burn ends, the exact pre-transformation token image recorded at
+activation is restored. Restoration resolves the recorded TokenDocument UUID,
+so it also works if the GM is viewing another scene when the burn ends.
 
 ### Fate Shift
 

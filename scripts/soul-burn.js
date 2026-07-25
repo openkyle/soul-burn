@@ -724,8 +724,33 @@ function configureRegularSoulBurnItem(data, action, actor) {
     // Item's normal roll/chat workflow.
     data.system.consume = { type: "", target: null, amount: null };
   } else if (action === "channel") {
+    const proficiencyUses = Math.max(
+      1,
+      Math.floor(Number(actor.system.attributes?.prof) || 1)
+    );
+    const parsedPreviousMaximum = Number(data.system.uses?.max);
+    const previousMaximum = Number.isFinite(parsedPreviousMaximum)
+      ? Math.max(0, parsedPreviousMaximum)
+      : proficiencyUses;
+    const previousValue = Math.max(
+      0,
+      Number(data.system.uses?.value) || 0
+    );
+    const expendedUses = Number.isFinite(parsedPreviousMaximum)
+      ? Math.max(0, previousMaximum - previousValue)
+      : 0;
+    data.system.description.value =
+      "<p>Gather sacred energy and fire a brilliant beam of holy light at one enemy you can see. You may use Channel Aether a number of times equal to your proficiency bonus, regaining all expended uses when you finish a short or long rest. Make an attack roll. On a hit, the target takes Radiant damage equal to your Hit Die roll + your level. This does not consume a Hit Die.</p>";
     data.system.ability = "";
     data.system.actionType = "rsak";
+    data.system.uses = {
+      ...(data.system.uses ?? {}),
+      value: Math.max(0, proficiencyUses - expendedUses),
+      max: String(proficiencyUses),
+      per: "sr",
+      recovery: "",
+      prompt: true
+    };
     data.system.damage = {
       ...(data.system.damage ?? {}),
       parts: [[`1d${largest} + ${level}`, "radiant"]]
@@ -1482,6 +1507,21 @@ async function applyMovement(actor) {
 }
 
 async function removeVisuals(actor, savedState) {
+  const restoredTokenUuids = new Set();
+  for (const [tokenUuid, original] of Object.entries(savedState.originalImages ?? {})) {
+    if (!original) continue;
+    try {
+      const tokenDocument = await fromUuid(tokenUuid);
+      if (tokenDocument?.documentName !== "Token") continue;
+      if (tokenDocument.texture?.src !== original) {
+        await tokenDocument.update({ "texture.src": original });
+      }
+      restoredTokenUuids.add(tokenUuid);
+    } catch (error) {
+      console.warn(`Soul Burn | Could not restore original token image for ${tokenUuid}.`, error);
+    }
+  }
+
   for (const token of actorTokens(actor)) {
     if (globalThis.TokenMagic) {
       try {
@@ -1496,8 +1536,14 @@ async function removeVisuals(actor, savedState) {
         console.warn("Soul Burn | Could not remove TokenMagic filter.", error);
       }
     }
-    const original = savedState.originalImages[token.document.uuid];
-    if (original) await token.document.update({ "texture.src": original });
+    const original = savedState.originalImages?.[token.document.uuid];
+    if (
+      original
+      && !restoredTokenUuids.has(token.document.uuid)
+      && token.document.texture?.src !== original
+    ) {
+      await token.document.update({ "texture.src": original });
+    }
   }
 
   const effects = actor.effects
@@ -1631,41 +1677,6 @@ async function spendItemCharge(item, label) {
   const charges = Number(item.system.uses?.value ?? 0);
   if (charges <= 0) throw new Error(`${label} has no charges remaining.`);
   await item.update({ "system.uses.value": charges - 1 });
-}
-
-async function channelAether(actor, { item = null, chargeAlreadySpent = false } = {}) {
-  const channelItem = item ?? actor.items.find(
-    ownedItem => ownedItem.getFlag("soul-burn", "action") === "channel"
-  );
-  const hitDice = classData(actor);
-  if (!hitDice.length) throw new Error("No class Hit Die was found.");
-  const largest = Math.max(...hitDice.map(c => c.faces));
-  const level = hitDice.reduce((sum, c) => sum + c.levels, 0);
-  const abilities = actor.system.abilities ?? {};
-  const options = Object.entries(abilities)
-    .map(([key, ability]) => `<option value="${key}">${esc(CONFIG.DND5E.abilities?.[key]?.label ?? key.toUpperCase())} (${Number(ability.mod) >= 0 ? "+" : ""}${ability.mod})</option>`)
-    .join("");
-  const abilityKey = await choose(
-    "Channel Aether",
-    `<p>Choose the ability for the radiant attack. This does not spend a Hit Die.</p>
-     <div class="form-group"><label>Ability</label><select name="ability">${options}</select></div>`,
-    {
-      roll: { icon: '<i class="fas fa-sun"></i>', label: "Attack", value: html => html.find('[name="ability"]').val() },
-      cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: null }
-    },
-    "roll"
-  );
-  if (!abilityKey) return;
-  if (!chargeAlreadySpent) await spendItemCharge(channelItem, "Channel Aether");
-
-  const mod = Number(abilities[abilityKey]?.mod ?? 0);
-  const prof = Number(actor.system.attributes?.prof ?? 0);
-  const attack = await makeRoll("1d20 + @mod + @prof", { mod, prof });
-  const damage = await makeRoll(`1d${largest} + ${level}`);
-  await chat(actor, "Channel Aether", `<p>Radiant attack: <strong>${attack.total}</strong> vs AC.</p><p>On a hit: <strong>${damage.total} radiant damage</strong> (1d${largest} + ${level}).</p>`);
-  await attack.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: "Channel Aether — Attack" });
-  await damage.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: "Channel Aether — Radiant Damage" });
-  return true;
 }
 
 function remainingUnusedCombatRounds(current, combat = game.combat) {
@@ -1990,7 +2001,6 @@ async function runSoulBurnAction(action, {
       surge: () => aetherSurge(subject.actor),
       // Compatibility for chat cards created before AetherStrike was renamed.
       strike: () => aetherSurge(subject.actor),
-      channel: () => channelAether(subject.actor, { item, chargeAlreadySpent }),
       fate: () => fateShift(subject.actor),
       glow: () => consumeAetherglow(subject.actor, { item, chargeAlreadySpent }),
       end: () => endBurn(subject.actor)
@@ -2014,8 +2024,8 @@ async function showRules() {
       <p>Your maximum Soul Burn is the total maximum of all your Hit Dice. If current Soul Burn exceeds that maximum, your soul becomes unstable and is permanently destroyed when the current burn period ends. This is Burnout.</p>
       <h2>AetherSurge: Utilizing Hit Dice (1 Action)</h2>
       <p>Once per attack after you hit, spend and roll a Hit Die. Add it to either the attack roll or the damage roll, but not both. Added damage is Radiant.</p>
-      <h2>Channel Aether (1 Action or Reaction, 2 Charges)</h2>
-      <p>Spend one of the feature's two charges and make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
+      <h2>Channel Aether (1 Action or Reaction)</h2>
+      <p>You may use Channel Aether a number of times equal to your proficiency bonus, regaining all uses on a short or long rest. Make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
       <h2>Fate Shift (1 Legendary Action)</h2>
       <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. When complete, Soul Burn ends.</p>
     </div>`,
@@ -2136,25 +2146,44 @@ async function openSoulBurn({ actor = null, token = null } = {}) {
 
 function soulBurnInventoryData(actor) {
   const current = state(actor);
+  const hitDice = classData(actor);
+  const hitDiceRemaining = hitDice.reduce(
+    (total, entry) => total + entry.remaining,
+    0
+  );
+  const hitDiceMaximum = hitDice.reduce(
+    (total, entry) => total + entry.levels,
+    0
+  );
   const actions = temporarySoulBurnActions(actor)
     .sort((a, b) =>
       SB.temporaryActions.indexOf(normalizedSoulBurnAction(a))
       - SB.temporaryActions.indexOf(normalizedSoulBurnAction(b))
     )
     .map(item => {
+      const action = normalizedSoulBurnAction(item);
       const uses = item.system.uses ?? {};
+      const showsHitDice = action === "surge";
+      const description = String(item.system.description?.value ?? "").trim();
+      const requirements = String(item.system.requirements ?? "").trim();
+      const range = String(item.labels?.range ?? "").trim();
       return {
         id: item.id,
-        action: normalizedSoulBurnAction(item),
+        action,
         name: item.name,
         img: item.img,
         activation: item.labels?.activation
           ?? CONFIG.DND5E.abilityActivationTypes?.[item.system.activation?.type]
           ?? item.system.activation?.type
           ?? "Special",
-        hasUses: Number(uses.max ?? 0) > 0,
-        uses: Number(uses.value ?? 0),
-        maxUses: Number(uses.max ?? 0)
+        hasUses: showsHitDice || Number(uses.max ?? 0) > 0,
+        uses: showsHitDice ? hitDiceRemaining : Number(uses.value ?? 0),
+        maxUses: showsHitDice ? hitDiceMaximum : Number(uses.max ?? 0),
+        usesLabel: showsHitDice ? "Hit Dice" : "",
+        description,
+        requirements,
+        range,
+        hasDetails: Boolean(description || requirements || range)
       };
     });
   return {
@@ -2195,6 +2224,21 @@ function bindTidySoulBurnInventory(section, actor) {
       event.stopPropagation();
       const item = actor.items.get(event.currentTarget.dataset.sbItemUse);
       if (item) await item.use();
+    });
+  }
+  for (const control of section.querySelectorAll("[data-sb-item-toggle]")) {
+    control.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemId = event.currentTarget.dataset.sbItemToggle;
+      const details = section.querySelector(`[data-sb-item-details="${itemId}"]`);
+      if (!details) return;
+      const expanded = details.hidden;
+      details.hidden = !expanded;
+      event.currentTarget.setAttribute("aria-expanded", String(expanded));
+      event.currentTarget
+        .querySelector(".soul-burn-inventory-item-chevron")
+        ?.classList.toggle("expanded", expanded);
     });
   }
   for (const control of section.querySelectorAll("[data-sb-item-view]")) {
@@ -2360,7 +2404,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.28"
+    version: "1.0.29"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -2474,14 +2518,14 @@ function soulBurnChatItem(message, html) {
 
 function injectSoulBurnChatControl(message, html) {
   const { card, action } = soulBurnChatItem(message, html);
+  if (action === "channel") {
+    card.find('[data-soul-burn-action="channel"]').remove();
+    return;
+  }
   const controls = {
     glow: {
       icon: "fas fa-flask",
       label: "Pour AetherGlow"
-    },
-    channel: {
-      icon: "fas fa-sun",
-      label: "Channel Aether"
     }
   };
   const control = controls[action];
@@ -2507,8 +2551,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   const chatHtml = html?.jquery ? html : $(html);
   injectSoulBurnChatControl(message, chatHtml);
   const resolved = [
-    ["glow", "aetherglowResolved", "AetherGlow Used"],
-    ["channel", "channelResolved", "Channel Aether Used"]
+    ["glow", "aetherglowResolved", "AetherGlow Used"]
   ];
   for (const [action, flag, label] of resolved) {
     if (!message.getFlag("soul-burn", flag)) continue;
@@ -2557,7 +2600,7 @@ function interceptSoulBurnUse(document) {
 
 Hooks.on("dnd5e.preUseItem", (item, _config, options = {}) => {
   const action = normalizedSoulBurnAction(item);
-  if (["glow", "channel"].includes(action)) {
+  if (action === "glow") {
     options.flags ??= {};
     options.flags["soul-burn"] = {
       ...(options.flags["soul-burn"] ?? {}),
@@ -2857,12 +2900,12 @@ $(document)
     event.stopPropagation();
     const button = $(event.currentTarget);
     const action = event.currentTarget.dataset.soulBurnAction;
-    const limitedAction = ["glow", "channel"].includes(action);
-    const resolvedFlag = action === "glow" ? "aetherglowResolved" : "channelResolved";
+    const limitedAction = action === "glow";
+    const resolvedFlag = "aetherglowResolved";
     const messageId = button.closest(".chat-message").data("message-id");
     const message = messageId ? game.messages.get(messageId) : null;
     if (limitedAction && message?.getFlag("soul-burn", resolvedFlag)) {
-      return ui.notifications.warn(`This ${action === "glow" ? "AetherGlow" : "Channel Aether"} chat-card charge has already been used.`);
+      return ui.notifications.warn("This AetherGlow chat-card charge has already been used.");
     }
     const messageActorId = message?.speaker?.actor;
     const appId = button.closest(".app").data("appid");
@@ -2887,7 +2930,7 @@ $(document)
       if (limitedAction && completed === true && message) {
         try {
           await message.setFlag("soul-burn", resolvedFlag, true);
-          button.html(`<i class="fas fa-check"></i> ${action === "glow" ? "AetherGlow Used" : "Channel Aether Used"}`);
+          button.html('<i class="fas fa-check"></i> AetherGlow Used');
         } catch (error) {
           console.warn("Soul Burn | Could not lock the used limited-use chat card.", error);
         }

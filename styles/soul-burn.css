@@ -266,7 +266,7 @@
 
 .soul-burn-inventory-row {
   display: grid;
-  grid-template-columns: 34px minmax(180px, 1fr) 72px 112px 64px;
+  grid-template-columns: 34px minmax(180px, 1fr) 96px 112px 64px;
   min-height: 34px;
   align-items: center;
   font-size: 0.9rem;
@@ -287,6 +287,9 @@
 }
 
 .soul-burn-inventory-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   height: 34px;
   margin: 0;
   padding: 0 0.55rem;
@@ -299,6 +302,16 @@
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+
+.soul-burn-inventory-item-chevron {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  transition: transform 120ms ease;
+}
+
+.soul-burn-inventory-item-chevron.expanded {
+  transform: rotate(90deg);
 }
 
 .soul-burn-inventory-name:hover {
@@ -329,6 +342,28 @@
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+
+.soul-burn-inventory-details {
+  padding: 0.5rem 0.65rem 0.6rem;
+  background: rgba(236, 207, 127, 0.09);
+  border-bottom: 1px solid rgba(127, 97, 47, 0.25);
+}
+
+.soul-burn-inventory-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.82rem;
+}
+
+.soul-burn-inventory-description > :first-child {
+  margin-top: 0;
+}
+
+.soul-burn-inventory-description > :last-child {
+  margin-bottom: 0;
 }
 
 .soul-burn-fate-countdown {
