@@ -73,6 +73,10 @@
   color: #b00020;
 }
 
+.soul-burn-player-grid small {
+  display: block;
+}
+
 .soul-burn-player-manager .sheet-footer {
   margin-top: 12px;
 }

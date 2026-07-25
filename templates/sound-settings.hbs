@@ -1,7 +1,7 @@
 <form class="soul-burn-sound-form">
   <p class="notes">
-    Choose audio from Foundry's file browser. The bundled files work by default.
-    Preview plays only for you; in-game sounds are shared with connected players.
+    Choose audio from Foundry's file browser. Preview plays only for you;
+    in-game sounds are shared with connected players.
   </p>
 
   <div class="form-group">
@@ -19,6 +19,41 @@
       </button>
     </div>
     <p class="hint">Played when Soul Burn activates.</p>
+  </div>
+
+  <div class="form-group">
+    <label>Soul Burn Ending / Transform Back</label>
+    <div class="form-fields">
+      <input type="text" name="endSound" value="{{endSound}}" placeholder="Choose an audio file">
+      <button type="button" data-browse-target="endSound" title="Browse">
+        <i class="fas fa-folder-open"></i>
+      </button>
+      <button type="button" data-preview-target="endSound" title="Preview">
+        <i class="fas fa-play"></i>
+      </button>
+      <button type="button" data-default-target="endSound" title="Restore bundled sound">
+        <i class="fas fa-rotate-left"></i>
+      </button>
+    </div>
+    <p class="hint">Played when the duration expires or Soul Burn ends early. Bundled default: RagePowerDown.ogg.</p>
+  </div>
+
+  <hr>
+
+  <div class="form-group">
+    <label>Constitution Check on End</label>
+    <div class="form-fields">
+      <input type="checkbox" name="requireEndConSave" {{checked requireEndConSave}}>
+    </div>
+    <p class="hint">Require and report a Constitution ability check whenever Soul Burn ends.</p>
+  </div>
+
+  <div class="form-group">
+    <label>Constitution Check DC</label>
+    <div class="form-fields">
+      <input type="number" name="endConSaveDC" value="{{endConSaveDC}}" min="1" max="30" step="1">
+    </div>
+    <p class="hint">The GM resolves the consequences of success or failure.</p>
   </div>
 
   <div class="form-group">

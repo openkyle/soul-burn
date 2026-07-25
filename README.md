@@ -89,13 +89,14 @@ and before/after tolerance.
 - An Actor with dnd5e class items and Hit Dice
 - The Actor's third resource configured as **Soul Burn**
 
-Both audio effects are bundled with the module:
+Three audio effects are bundled with the module:
 
 - `AetherUp3.ogg` plays when Soul Burn activates.
 - `AetherGlow.ogg` plays when Aetherglow is consumed.
+- `RagePowerDown.ogg` plays when Soul Burn ends and the token transforms back.
 
-The GM can change either sound under **Configure Settings → Module Settings →
-Soul Burn Sounds**. The settings panel includes Browse, Preview, and Restore
+The GM can change any sound under **Configure Settings → Module Settings →
+Soul Burn Settings**. The settings panel includes Browse, Preview, and Restore
 Bundled Sound controls.
 
 The mechanics work without animation modules. These optional modules preserve
@@ -181,7 +182,36 @@ player character receives the Aetherglow.
 
 Under **Configure Settings → Module Settings → Soul Burn Players**, the GM can
 review and edit player Soul Burn, lifetime uses, AG Tolerance, and Channel
-Aether status. The screen includes per-player and party-wide tolerance resets.
+Aether status. Active entries also show their individually tracked combat
+rounds. The screen includes per-player and party-wide tolerance resets.
+
+### Combat duration and ending
+
+When Soul Burn activates during a started Combat encounter, the module stores
+the Combat ID, activation round, and that character's rolled duration. A
+duration of `N` rounds that begins in round `R` remains active through round
+`R + N - 1`; the primary active GM client restores the transformation when
+round `R + N` begins.
+
+At activation, the module reads the character's current walk, fly, swim, climb,
+and burrow speeds. Every nonzero speed is doubled through a managed
+multiplicative Active Effect, so the doubled values appear on the character
+sheet. The Actor's underlying values are not permanently overwritten. Removing
+the effect restores the current base speeds automatically, and both activation
+and ending cards report the movement values.
+
+The activation card logs the starting and expiry rounds. Automatic expiry:
+
+- Removes the managed movement effect and TokenMagic fire.
+- Restores the original token image.
+- Plays the configured ending sound.
+- Posts a transformation-ending chat card.
+- Resolves pending Burnout messaging.
+- Optionally rolls a Constitution ability check against the GM-configured DC.
+
+Configure the ending sound and optional Constitution check under **Configure
+Settings → Module Settings → Soul Burn Settings**. The ending-sound field uses
+Foundry's audio browser and includes Preview and Restore Bundled Sound buttons.
 
 ## Interface
 

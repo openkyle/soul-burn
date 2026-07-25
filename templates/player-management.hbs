@@ -33,6 +33,7 @@
     <span><input type="checkbox" name="actors.{{id}}.channelUsed" {{checked channelUsed}}></span>
     <span>
       {{#if active}}<strong>Active</strong>{{else}}Inactive{{/if}}
+      {{#if combatTracking}}<small>{{combatTracking}}</small>{{/if}}
       {{#if burnout}}<strong class="soul-burn-danger">Burnout</strong>{{/if}}
     </span>
     <span class="soul-burn-player-controls">

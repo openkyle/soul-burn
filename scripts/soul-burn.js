@@ -14,6 +14,7 @@ const SB = {
     "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/CharTokens/AstrumKnights",
   defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
   defaultAetherglowSound: "modules/soul-burn/sounds/AetherGlow.ogg",
+  defaultEndSound: "modules/soul-burn/sounds/RagePowerDown.ogg",
   sacredFlame:
     "modules/jb2a_patreon/Library/Cantrip/Sacred_Flame/SacredFlameTarget_01_Regular_Yellow_400x400.webm"
 };
@@ -26,7 +27,7 @@ class SoulBurnSoundSettings extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "soul-burn-sound-settings",
-      title: "Soul Burn Sound Settings",
+      title: "Soul Burn Settings",
       template: "modules/soul-burn/templates/sound-settings.hbs",
       width: 620,
       closeOnSubmit: true
@@ -37,8 +38,12 @@ class SoulBurnSoundSettings extends FormApplication {
     return {
       powerUpSound: soundPath("powerUpSound"),
       aetherglowSound: soundPath("aetherglowSound"),
+      endSound: soundPath("endSound"),
+      requireEndConSave: game.settings.get("soul-burn", "requireEndConSave"),
+      endConSaveDC: game.settings.get("soul-burn", "endConSaveDC"),
       defaultPowerUpSound: SB.defaultPowerUpSound,
-      defaultAetherglowSound: SB.defaultAetherglowSound
+      defaultAetherglowSound: SB.defaultAetherglowSound,
+      defaultEndSound: SB.defaultEndSound
     };
   }
 
@@ -63,7 +68,12 @@ class SoulBurnSoundSettings extends FormApplication {
     html.find("[data-default-target]").on("click", event => {
       event.preventDefault();
       const target = event.currentTarget.dataset.defaultTarget;
-      const value = target === "powerUpSound" ? SB.defaultPowerUpSound : SB.defaultAetherglowSound;
+      const defaults = {
+        powerUpSound: SB.defaultPowerUpSound,
+        aetherglowSound: SB.defaultAetherglowSound,
+        endSound: SB.defaultEndSound
+      };
+      const value = defaults[target] ?? "";
       html.find(`[name="${target}"]`).val(value).trigger("change");
     });
   }
@@ -71,7 +81,14 @@ class SoulBurnSoundSettings extends FormApplication {
   async _updateObject(_event, formData) {
     await game.settings.set("soul-burn", "powerUpSound", String(formData.powerUpSound ?? "").trim());
     await game.settings.set("soul-burn", "aetherglowSound", String(formData.aetherglowSound ?? "").trim());
-    ui.notifications.info("Soul Burn sound settings saved.");
+    await game.settings.set("soul-burn", "endSound", String(formData.endSound ?? "").trim());
+    await game.settings.set("soul-burn", "requireEndConSave", Boolean(formData.requireEndConSave));
+    await game.settings.set(
+      "soul-burn",
+      "endConSaveDC",
+      Math.min(30, Math.max(1, Number(formData.endConSaveDC) || 10))
+    );
+    ui.notifications.info("Soul Burn settings saved.");
   }
 }
 
@@ -104,7 +121,10 @@ class SoulBurnPlayerManager extends FormApplication {
           channelUsed: current.channelUsed,
           active: current.active,
           burnout: current.burnout,
-          usesSoulBurn: hasSoulBurnResource(actor)
+          usesSoulBurn: hasSoulBurnResource(actor),
+          combatTracking: current.active && current.combatId && current.startedRound !== null
+            ? `Rounds ${current.startedRound}–${Number(current.endsRound) - 1}`
+            : ""
         };
       });
     return { actors };
@@ -173,11 +193,35 @@ Hooks.once("init", () => {
     type: String,
     default: SB.defaultAetherglowSound
   });
+  game.settings.register("soul-burn", "endSound", {
+    name: "Soul Burn End Sound",
+    hint: "Audio played when Soul Burn ends and the token transforms back.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: SB.defaultEndSound
+  });
+  game.settings.register("soul-burn", "requireEndConSave", {
+    name: "Require Constitution Check When Soul Burn Ends",
+    hint: "Roll a Constitution ability check and report the result when any Soul Burn period ends.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+  game.settings.register("soul-burn", "endConSaveDC", {
+    name: "Soul Burn End Constitution DC",
+    hint: "The DC used for the optional Constitution ability check.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 10
+  });
   game.settings.registerMenu("soul-burn", "soundSettings", {
-    name: "Soul Burn Sounds",
-    label: "Configure Sounds",
-    hint: "Browse for, preview, or restore the Soul Burn audio files.",
-    icon: "fas fa-volume-high",
+    name: "Soul Burn Settings",
+    label: "Configure Soul Burn",
+    hint: "Configure activation, Aetherglow, and ending sounds plus end-of-burn Constitution checks.",
+    icon: "fas fa-fire-flame-curved",
     type: SoulBurnSoundSettings,
     restricted: true
   });
@@ -302,6 +346,23 @@ function maximumBurn(actor) {
     : classData(actor).reduce((total, c) => total + c.levels * c.faces, 0);
 }
 
+function movementSpeeds(actor) {
+  const movement = actor.system.attributes?.movement ?? {};
+  return Object.fromEntries(
+    ["walk", "fly", "swim", "climb", "burrow"]
+      .map(type => [type, Number(movement[type] ?? 0)])
+      .filter(([, value]) => value > 0)
+  );
+}
+
+function movementSummary(speeds, multiplier = 1) {
+  const entries = Object.entries(speeds);
+  if (!entries.length) return "No numeric movement speeds";
+  return entries
+    .map(([type, value]) => `${type[0].toUpperCase()}${type.slice(1)} ${value * multiplier} ft.`)
+    .join(", ");
+}
+
 async function initializeSoulBurnResource(actor) {
   if (!actor || actor.type !== "character") return;
   const resource = actor.system.resources?.tertiary ?? {};
@@ -333,8 +394,10 @@ function state(actor) {
     active: Boolean(saved.active),
     burnout: Boolean(saved.burnout),
     channelUsed: Boolean(saved.channelUsed),
+    combatId: saved.combatId ?? null,
     startedRound: saved.startedRound ?? null,
     endsRound: saved.endsRound ?? null,
+    baseMovement: saved.baseMovement ?? {},
     originalImages: saved.originalImages ?? {}
   };
 }
@@ -615,14 +678,26 @@ async function activate(actor, token) {
     "system.hitDiceUsed": chosen.used + 1
   }]);
   const roll = await makeRoll(`1d${chosen.faces}`);
+  const staleMovementEffects = actor.effects
+    .filter(effect => (effect.name ?? effect.label) === SB.effectName && effect.getFlag(SB.scope, "managed"))
+    .map(effect => effect.id);
+  if (staleMovementEffects.length) {
+    await actor.deleteEmbeddedDocuments("ActiveEffect", staleMovementEffects);
+  }
+  const baseMovement = movementSpeeds(actor);
+  const combat = game.combat;
+  const combatRound = Number(combat?.round ?? 0);
+  const trackCombat = Boolean(combat && combatRound > 0);
   const next = {
     ...current,
     burn: current.burn + roll.total,
     uses: current.uses + 1,
     active: true,
     burnout: current.burn + roll.total > max,
-    startedRound: game.combat?.round ?? null,
-    endsRound: game.combat ? game.combat.round + roll.total : null
+    combatId: trackCombat ? combat.id : null,
+    startedRound: trackCombat ? combatRound : null,
+    endsRound: trackCombat ? combatRound + roll.total : null,
+    baseMovement
   };
 
   await applyMovement(actor);
@@ -632,7 +707,11 @@ async function activate(actor, token) {
     actor,
     "Soul Burn",
     `<p><strong>${esc(actor.name)}</strong> gains double movement and one Soul Burn action each turn for <strong>${roll.total}</strong> rounds.</p>
-     <p>Soul Burn: <strong>${next.burn} / ${max}</strong>${next.burnout ? " — <strong>Burnout pending</strong>" : ""}</p>`,
+     <p>Soul Burn: <strong>${next.burn} / ${max}</strong>${next.burnout ? " — <strong>Burnout pending</strong>" : ""}</p>
+     <p><strong>Movement:</strong> ${esc(movementSummary(baseMovement))} → <strong>${esc(movementSummary(baseMovement, 2))}</strong></p>
+     ${trackCombat
+       ? `<p><strong>Combat:</strong> Activated in round ${combatRound}. The transformation ends when round ${next.endsRound} begins.</p>`
+       : "<p><strong>Combat:</strong> No active combat round was found; duration is tracked manually.</p>"}`,
     roll
   );
 }
@@ -691,20 +770,55 @@ async function channelAether(actor) {
 
 async function endBurn(actor, reason = "Soul Burn ends") {
   const current = state(actor);
+  if (!current.active) return;
+
+  const endSound = soundPath("endSound");
+  if (endSound) {
+    try {
+      await AudioHelper.play({ src: endSound, volume: 0.5, autoplay: true, loop: false }, true);
+    } catch (error) {
+      console.warn("Soul Burn | Ending sound skipped.", error);
+    }
+  }
+
   await removeVisuals(actor, current);
   await saveState(actor, {
     ...current,
     active: false,
+    combatId: null,
     startedRound: null,
     endsRound: null,
+    baseMovement: {},
     originalImages: {}
   });
+
+  let constitutionRoll = null;
+  let constitutionSummary = "";
+  if (game.settings.get("soul-burn", "requireEndConSave")) {
+    const dc = Math.min(30, Math.max(1, Number(game.settings.get("soul-burn", "endConSaveDC")) || 10));
+    const modifier = Number(actor.system.abilities?.con?.mod ?? 0);
+    constitutionRoll = await makeRoll("1d20 + @modifier", { modifier });
+    const passed = constitutionRoll.total >= dc;
+    constitutionSummary = `
+      <p><strong>Constitution Check:</strong> ${constitutionRoll.total} vs DC ${dc}
+      — <strong>${passed ? "Success" : "Failure"}</strong></p>
+      <p><em>The GM resolves the consequences of this check.</em></p>`;
+  }
+
+  const durationSummary = current.combatId && current.startedRound !== null
+    ? `<p><strong>Tracked Period:</strong> Round ${current.startedRound} through the end of round ${Number(current.endsRound) - 1}.</p>`
+    : "";
+  const restoredMovement = movementSpeeds(actor);
+  const movementRestoredSummary = `
+    <p><strong>Movement Restored:</strong> ${esc(movementSummary(restoredMovement))}</p>`;
   await chat(
     actor,
     reason,
-    current.burnout
+    `${durationSummary}${movementRestoredSummary}${current.burnout
       ? `<p><strong>${esc(actor.name)} exceeded their maximum Soul Burn.</strong> Burnout resolves now: their soul is permanently destroyed. The macro records this but does not delete the Actor.</p>`
-      : `<p>${esc(actor.name)} is no longer Soul Burning.</p>`
+      : `<p>${esc(actor.name)} transforms back and is no longer Soul Burning.</p>`}
+     ${constitutionSummary}`,
+    constitutionRoll
   );
 }
 
@@ -966,8 +1080,12 @@ async function dashboard(actor, token) {
   const diceText = dice.length
     ? dice.map(c => `${esc(c.item.name)}: ${c.remaining}/${c.levels}d${c.faces}`).join("<br>")
     : "No class Hit Dice found";
-  const combatWarning = current.active && game.combat && current.endsRound !== null && game.combat.round >= current.endsRound
-    ? `<p class="notification warning">The recorded burn period has ended. Use “End Burn” after resolving Burnout.</p>`
+  const combatWarning = current.active
+    && game.combat
+    && current.combatId === game.combat.id
+    && current.endsRound !== null
+    && game.combat.round >= current.endsRound
+    ? `<p class="notification warning">The recorded burn period has ended. The GM client is restoring the transformation.</p>`
     : "";
 
   const activeButtons = current.active ? `
@@ -1040,7 +1158,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.4"
+    version: "1.0.5"
   });
 
   game.socket.on("module.soul-burn", async request => {
@@ -1068,6 +1186,7 @@ Hooks.once("ready", async () => {
     const hasSoulBurn = actor.items.some(item => item.getFlag("soul-burn", "action") === "activate");
     if (hasSoulBurn) await initializeSoulBurnResource(actor);
   }
+  if (game.combat) await expireDueSoulBurn(game.combat);
 
   const command = "game.soulBurn.open();";
   let macro = game.macros.getName("Soul Burn");
@@ -1103,6 +1222,39 @@ Hooks.on("createItem", async (item, _options, userId) => {
   if (item.getFlag("soul-burn", "action") !== "activate") return;
   await initializeSoulBurnResource(item.parent);
   ui.notifications.info(`${item.parent.name}'s tertiary resource is configured as Soul Burn.`);
+});
+
+const expiringSoulBurnActors = new Set();
+
+async function expireDueSoulBurn(combat) {
+  if (!game.user.isGM || !combat) return;
+  const primaryGM = game.users
+    .filter(user => user.isGM && user.active)
+    .sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (primaryGM?.id !== game.user.id) return;
+
+  const round = Number(combat.round ?? 0);
+  for (const actor of game.actors.filter(actor => actor.type === "character")) {
+    const current = state(actor);
+    if (!current.active) continue;
+    if (current.combatId !== combat.id || current.endsRound === null) continue;
+    if (round < Number(current.endsRound)) continue;
+    if (expiringSoulBurnActors.has(actor.id)) continue;
+
+    expiringSoulBurnActors.add(actor.id);
+    try {
+      await endBurn(actor, "Soul Burn Duration Ends");
+    } catch (error) {
+      notifyError(error);
+    } finally {
+      expiringSoulBurnActors.delete(actor.id);
+    }
+  }
+}
+
+Hooks.on("updateCombat", async (combat, changes) => {
+  if (changes.round === undefined) return;
+  await expireDueSoulBurn(combat);
 });
 
 // V11/dnd5e 2.4.1 can replace chat-card HTML after render hooks fire.

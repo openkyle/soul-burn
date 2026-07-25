@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.5
+
+- Added per-character combat tracking for Soul Burn duration.
+- Activation records the Combat encounter, starting round, rolled duration, and
+  automatic expiry round in Actor state and chat.
+- Added GM-authoritative automatic transformation restoration when each
+  character's individual expiry round begins.
+- Added a transformation-ending chat card and configurable ending sound.
+- Bundled `RagePowerDown.ogg` as the default transformation-ending sound.
+- Added an optional end-of-burn Constitution ability check with a GM-defined
+  DC from 1–30.
+- Expanded **Soul Burn Settings** with Browse, Preview, and Clear controls for
+  the ending sound.
+- Added tracked combat rounds to the GM player-management screen.
+- Added explicit movement snapshots and chat reporting for walk, fly, swim,
+  climb, and burrow speeds; all nonzero speeds double while active and restore
+  when the managed effect ends.
+
 ## 1.0.4
 
 - Replaced Aetherglow Charge with the Legendary equipment item **Holy Amulet
