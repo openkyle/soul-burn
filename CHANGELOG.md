@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.25
+
+- Soul Burn chat-card controls are now generated from the Item's
+  `flags.soul-burn.action` metadata instead of relying on editable description
+  HTML. Editing rich text can no longer turn the AetherGlow or Channel Aether
+  controls into inert text.
+- Legacy description buttons are removed from rendered cards before the
+  module-generated control is inserted, preventing duplicates.
+- Chat cards now record whether normal dnd5e Item use already spent a limited
+  charge. A button on a merely displayed Item card spends the charge itself,
+  while a card created through Item use never spends it twice.
+
 ## 1.0.24
 
 - Moved the battlefield grayscale ripple until after the full-color Sacred

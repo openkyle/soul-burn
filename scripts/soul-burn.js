@@ -2402,7 +2402,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.24"
+    version: "1.0.25"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -2496,14 +2496,65 @@ Hooks.once("ready", async () => {
   }
 });
 
+function soulBurnChatItem(message, html) {
+  const chatHtml = html?.jquery ? html : $(html);
+  const card = chatHtml.find(".dnd5e.chat-card.item-card").first();
+  const itemId = message.getFlag("soul-burn", "itemId")
+    ?? message.getFlag("dnd5e", "use.itemId")
+    ?? card.data("item-id");
+  const actorId = message.speaker?.actor ?? card.data("actor-id");
+  const actor = actorId ? game.actors.get(actorId) : null;
+  const item = actor?.items.get(itemId) ?? null;
+  return {
+    actor,
+    item,
+    card,
+    action: message.getFlag("soul-burn", "itemAction")
+      ?? soulBurnItemFlag(item, "action")
+  };
+}
+
+function injectSoulBurnChatControl(message, html) {
+  const { card, action } = soulBurnChatItem(message, html);
+  const controls = {
+    glow: {
+      icon: "fas fa-flask",
+      label: "Pour AetherGlow"
+    },
+    channel: {
+      icon: "fas fa-sun",
+      label: "Channel Aether"
+    }
+  };
+  const control = controls[action];
+  if (!card.length || !control) return;
+
+  // Description HTML is editable and may be sanitized by Foundry's rich-text
+  // editor. Remove any legacy embedded control and always build the operational
+  // button from the Item's module flag instead.
+  card.find(`[data-soul-burn-action="${action}"]`).remove();
+  let buttons = card.find(".card-buttons").first();
+  if (!buttons.length) {
+    buttons = $('<div class="card-buttons"></div>');
+    card.find(".card-content").after(buttons);
+  }
+  buttons.append(
+    `<button type="button" class="soul-burn-chat-action" data-soul-burn-action="${action}">
+      <i class="${control.icon}"></i> ${control.label}
+    </button>`
+  );
+}
+
 Hooks.on("renderChatMessage", (message, html) => {
+  const chatHtml = html?.jquery ? html : $(html);
+  injectSoulBurnChatControl(message, chatHtml);
   const resolved = [
     ["glow", "aetherglowResolved", "AetherGlow Used"],
     ["channel", "channelResolved", "Channel Aether Used"]
   ];
   for (const [action, flag, label] of resolved) {
     if (!message.getFlag("soul-burn", flag)) continue;
-    html.find(`[data-soul-burn-action="${action}"]`)
+    chatHtml.find(`[data-soul-burn-action="${action}"]`)
       .prop("disabled", true)
       .html(`<i class="fas fa-check"></i> ${label}`);
   }
@@ -2546,7 +2597,17 @@ function interceptSoulBurnUse(document) {
   return false;
 }
 
-Hooks.on("dnd5e.preUseItem", item => interceptSoulBurnUse(item));
+Hooks.on("dnd5e.preUseItem", (item, _config, options = {}) => {
+  const action = normalizedSoulBurnAction(item);
+  if (["glow", "channel"].includes(action)) {
+    options.flags ??= {};
+    options.flags["soul-burn"] = {
+      ...(options.flags["soul-burn"] ?? {}),
+      chargeSpent: true
+    };
+  }
+  return interceptSoulBurnUse(item);
+});
 Hooks.on("dnd5e.preUseActivity", activity => interceptSoulBurnUse(activity));
 
 // This is the earliest supported launch hook in the supplied Tidy5e build.
@@ -2558,7 +2619,16 @@ Hooks.on("tidy5e-sheet.actorPreUseItem", item => interceptSoulBurnUse(item));
 // bypassing Item#use and therefore preUseItem. In that system version the
 // preDisplayCard hook is called with callAll, so returning false is ignored;
 // mutating createMessage is the supported way to prevent the ordinary card.
-Hooks.on("dnd5e.preDisplayCard", (item, _chatData, options) => {
+Hooks.on("dnd5e.preDisplayCard", (item, chatData, options) => {
+  const itemAction = normalizedSoulBurnAction(item);
+  if (itemAction) {
+    chatData.flags ??= {};
+    chatData.flags["soul-burn"] = {
+      ...(chatData.flags["soul-burn"] ?? {}),
+      itemAction,
+      itemId: item.id
+    };
+  }
   if (!scheduleSoulBurnDashboard(item)) return;
   options.createMessage = false;
 });
@@ -2775,7 +2845,8 @@ $(document)
       const completed = await runSoulBurnAction(action, {
         actor,
         item,
-        chargeAlreadySpent: limitedAction && Boolean(message)
+        chargeAlreadySpent: limitedAction
+          && Boolean(message?.getFlag("soul-burn", "chargeSpent"))
       });
       if (limitedAction && completed === true && message) {
         try {

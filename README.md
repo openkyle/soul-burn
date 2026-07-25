@@ -225,6 +225,10 @@ excluded.
   performs the document update.
 - Direct activation spends a charge. A normal dnd5e item use spends its charge
   when it posts the card, and that chat-card button is locked after resolution.
+- The actionable AetherGlow and Channel Aether chat-card buttons are generated
+  from module Item flags, not stored in editable rich-text descriptions.
+  Descriptions may therefore be edited without turning those controls into
+  text or removing their behavior.
 
 ### GM player management
 
