@@ -2,7 +2,7 @@
 
 A player-facing Foundry VTT macro for the **Soul Burn** homebrew system. It
 manages the character-sheet resource, Hit Dice, Burnout risk, movement, actions,
-Aetherglow tolerance, token transformation, and chat output in one interface.
+AetherGlow tolerance, token transformation, and chat output in one interface.
 
 The macro is designed for both workflows:
 
@@ -94,7 +94,7 @@ Fate Shift is used as a normal dnd5e Item. Its description provides the
 rule-bending terms, and using it ends Soul Burn without opening a custom text
 box.
 
-### Aetherglow and AGT
+### AetherGlow and AGT
 
 The administering character rolls:
 
@@ -102,11 +102,11 @@ The administering character rolls:
 max(1, 1d20 - AGT)
 ```
 
-AGT cannot exceed 19, and the final result cannot be less than 1. Aetherglow
+AGT cannot exceed 19, and the final result cannot be less than 1. AetherGlow
 therefore always restores at least 1 HP and provides at least 1 point of Soul
 Burn recovery. Actual Soul Burn cleared cannot exceed the recipient's current
 Soul Burn. The chat card shows the clamped formula, result, actual Soul Burn
-cleared, resource values, and AGT change. There is no “Aetherglow Blocked”
+cleared, resource values, and AGT change. There is no “AetherGlow Blocked”
 value.
 
 ## Compatibility and requirements
@@ -120,7 +120,7 @@ value.
 Three audio effects are bundled with the module:
 
 - `AetherUp3.ogg` plays when Soul Burn activates.
-- `AetherGlow.ogg` plays when Aetherglow is consumed.
+- `AetherGlow.ogg` plays when AetherGlow is consumed.
 - `RagePowerDown.ogg` plays when Soul Burn ends and the token transforms back.
 
 The GM can change any sound under **Configure Settings → Module Settings →
@@ -197,9 +197,9 @@ fallbacks. Actor state uses `flags.world.soulBurn`; module Item metadata uses
 ### Holy Amulet of Lux Eterna
 
 The compendium's Legendary **Holy Amulet of Lux Eterna** equipment is the only
-Aetherglow trigger; there is no separate Aetherglow macro. It is a 1 lb.
+AetherGlow trigger; there is no separate AetherGlow macro. It is a 1 lb.
 trinket worth 230 gp with six limited charges. Its chat-card button asks which
-player character or active-scene NPC receives the Aetherglow. Vehicles are
+player character or active-scene NPC receives the AetherGlow. Vehicles are
 excluded.
 
 - The administrator makes the `1d20` roll; the recipient does not roll.

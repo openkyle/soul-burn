@@ -1,8 +1,13 @@
 # Changelog
 
+## 1.0.23
+
+- Standardized the product name as **AetherGlow** in all player-facing
+  interfaces, chat messages, compendium text, settings, and documentation.
+
 ## 1.0.22
 
-- Clarified the Give Aetherglow dialog: AetherGlow always restores HP, also
+- Clarified the Give AetherGlow dialog: AetherGlow always restores HP, also
   reduces Soul Burn when present, and AG Tolerance reduces both effects.
 
 ## 1.0.21
@@ -114,19 +119,19 @@
 
 ## 1.0.13
 
-- Replaced the Give Aetherglow help text with the campaign wording supplied by
+- Replaced the Give AetherGlow help text with the campaign wording supplied by
   the GM.
 
 ## 1.0.12
 
-- Rewrote the Give Aetherglow recipient note into a shorter, clearer
+- Rewrote the Give AetherGlow recipient note into a shorter, clearer
   explanation of recipient ordering, the minimum-1 AGT roll, Soul Burn
   recovery, healing, and exposure.
 
 ## 1.0.11
 
 - Added a **Scene NPCs** group beneath **Player Characters** in the Give
-  Aetherglow recipient dropdown.
+  AetherGlow recipient dropdown.
 - Includes each NPC Actor represented by a token on the active scene, supports
   linked and unlinked tokens, deduplicates shared linked Actors, and continues
   to exclude vehicles.
@@ -137,12 +142,12 @@
   three, and so on; the total determines both Soul Burn gained and rounds.
 - Added exact multi-die Burnout probability calculations to the dashboard and
   activation confirmation.
-- Clarified and enforced that the Aetherglow administrator makes the `1d20`
+- Clarified and enforced that the AetherGlow administrator makes the `1d20`
   roll; the recipient receives its effects but is not the roll's chat speaker.
-- Changed Aetherglow administration to roll `max(1, 1d20 - AGT)`.
-- AGT remains capped at 19, while Aetherglow always restores at least 1 HP and
+- Changed AetherGlow administration to roll `max(1, 1d20 - AGT)`.
+- AGT remains capped at 19, while AetherGlow always restores at least 1 HP and
   provides at least 1 point of Soul Burn recovery.
-- Removed the misleading Aetherglow Blocked field. Chat now reports the
+- Removed the misleading AetherGlow Blocked field. Chat now reports the
   recovery result and the amount of existing Soul Burn actually cleared.
 
 ## 1.0.10
@@ -233,7 +238,7 @@
 
 ## 1.0.4
 
-- Replaced Aetherglow Charge with the Legendary equipment item **Holy Amulet
+- Replaced AetherGlow Charge with the Legendary equipment item **Holy Amulet
   of Lux Eterna**, using the supplied amulet art.
 - Configured the amulet as a trinket with 6 limited charges, one-action use,
   healing action type, 1 lb. weight, and 230 gp value.
@@ -241,7 +246,7 @@
   configured recipients after applying AGT.
 - Added removal of charmed, poisoned, petrified, temporary ability-score
   reductions, and temporary maximum-HP reductions.
-- Added direct-use charge spending and one-use locking for Aetherglow chat
+- Added direct-use charge spending and one-use locking for AetherGlow chat
   cards.
 - Removed the Soul Burn character-sheet header control. Soul Burn now enters
   through the feature's chat-card button.
@@ -252,10 +257,10 @@
   with the supplied campaign art.
 - Consolidated all player content into the **Soul Burn Features** Item
   compendium and removed the redundant Macro compendium.
-- Converted Aetherglow into a usable consumable Item with recipient selection.
-- Added GM-mediated Aetherglow resolution when a player gives it to another
+- Converted AetherGlow into a usable consumable Item with recipient selection.
+- Added GM-mediated AetherGlow resolution when a player gives it to another
   player's Actor.
-- Aetherglow now releases Soul Burn for configured Actors or heals `1d20` HP
+- AetherGlow now releases Soul Burn for configured Actors or heals `1d20` HP
   without touching unrelated tertiary resources.
 - Added a GM player-management settings screen for Soul Burn, uses, AGT, and
   active/Burnout status.
@@ -266,7 +271,7 @@
 ## 1.0.2
 
 - Added the **Soul Burn Features** compendium with Soul Burn, AetherSurge,
-  Channel Aether, Fate Shift, and Aetherglow character features.
+  Channel Aether, Fate Shift, and AetherGlow character features.
 - Added the **Soul Burn Macros** compendium with the launcher macro.
 - Added functional feature-sheet buttons that call the owning Actor's module
   workflow.
@@ -274,7 +279,7 @@
 ## 1.0.1
 
 - Bundled `AetherUp3.ogg` as the Soul Burn activation sound.
-- Bundled `AetherGlow.ogg` as the Aetherglow drinking sound.
+- Bundled `AetherGlow.ogg` as the AetherGlow drinking sound.
 - Added a GM-only Foundry settings panel with Browse, Preview, and Restore
   Default controls for both sounds.
 
@@ -288,7 +293,7 @@
 - Added player/GM Actor and token resolution.
 - Added multiclass-aware Hit Die consumption.
 - Added Burnout odds and pending Burnout tracking.
-- Added AetherSurge, Channel Aether, Fate Shift, and Aetherglow workflows.
+- Added AetherSurge, Channel Aether, Fate Shift, and AetherGlow workflows.
 - Added managed double-movement Active Effect.
 - Preserved the supplied Sequencer, JB2A, TokenMagic, and token-swap animation.
 - Added safe animation fallbacks and token-image restoration.
