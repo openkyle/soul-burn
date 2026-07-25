@@ -41,6 +41,7 @@ class SoulBurnSoundSettings extends FormApplication {
       powerUpSound: soundPath("powerUpSound"),
       aetherglowSound: soundPath("aetherglowSound"),
       endSound: soundPath("endSound"),
+      highStakesMode: game.settings.get("soul-burn", "highStakesMode"),
       requireEndConSave: game.settings.get("soul-burn", "requireEndConSave"),
       endConSaveDC: game.settings.get("soul-burn", "endConSaveDC"),
       defaultPowerUpSound: SB.defaultPowerUpSound,
@@ -84,6 +85,7 @@ class SoulBurnSoundSettings extends FormApplication {
     await game.settings.set("soul-burn", "powerUpSound", String(formData.powerUpSound ?? "").trim());
     await game.settings.set("soul-burn", "aetherglowSound", String(formData.aetherglowSound ?? "").trim());
     await game.settings.set("soul-burn", "endSound", String(formData.endSound ?? "").trim());
+    await game.settings.set("soul-burn", "highStakesMode", Boolean(formData.highStakesMode));
     await game.settings.set("soul-burn", "requireEndConSave", Boolean(formData.requireEndConSave));
     await game.settings.set(
       "soul-burn",
@@ -138,7 +140,7 @@ class SoulBurnPlayerManager extends FormApplication {
       const actor = game.actors.get(event.currentTarget.dataset.resetTolerance);
       if (!actor) return;
       await saveManagedState(actor, { ...state(actor), tolerance: 0 });
-      ui.notifications.info(`${actor.name}'s AG Tolerance was reset.`);
+      ui.notifications.info(`${actor.name}'s AGT was reset.`);
       this.render();
     });
     html.find("[data-reset-all-tolerance]").on("click", async event => {
@@ -146,7 +148,7 @@ class SoulBurnPlayerManager extends FormApplication {
       for (const actor of game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)) {
         await saveManagedState(actor, { ...state(actor), tolerance: 0 });
       }
-      ui.notifications.info("All player AG Tolerances were reset.");
+      ui.notifications.info("All player AGT values were reset.");
       this.render();
     });
   }
@@ -201,6 +203,14 @@ Hooks.once("init", () => {
     type: Boolean,
     default: false
   });
+  game.settings.register("soul-burn", "highStakesMode", {
+    name: "High Stakes Mode",
+    hint: "Each lifetime Soul Burn use adds another Hit Die to the next activation roll.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
   game.settings.register("soul-burn", "endConSaveDC", {
     name: "Soul Burn End Constitution DC",
     hint: "The DC used for the optional Constitution ability check.",
@@ -212,7 +222,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu("soul-burn", "soundSettings", {
     name: "Soul Burn Settings",
     label: "Configure Soul Burn",
-    hint: "Configure activation, Aetherglow, and ending sounds plus end-of-burn Constitution checks.",
+    hint: "Configure High Stakes Mode, sounds, and end-of-burn Constitution checks.",
     icon: "fas fa-fire-flame-curved",
     type: SoulBurnSoundSettings,
     restricted: true
@@ -220,7 +230,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu("soul-burn", "playerManager", {
     name: "Soul Burn Players",
     label: "Manage Players",
-    hint: "Review and edit player Soul Burn resources, lifetime uses, and AG Tolerance.",
+    hint: "Review and edit player Soul Burn resources, lifetime uses, and AGT.",
     icon: "fas fa-users-gear",
     type: SoulBurnPlayerManager,
     restricted: true
@@ -667,10 +677,35 @@ async function chat(actor, title, body, roll = null) {
   });
 }
 
-function burnoutChance(faces, remaining) {
-  if (remaining < 1) return 100;
-  if (remaining >= faces) return 0;
-  return Math.round(((faces - remaining) / faces) * 1000) / 10;
+function highStakesDiceCount(current) {
+  return game.settings.get("soul-burn", "highStakesMode")
+    ? Math.max(1, Math.floor(Number(current.uses ?? 0)) + 1)
+    : 1;
+}
+
+function burnoutChance(faces, remaining, count = 1) {
+  faces = Math.max(1, Number(faces) || 1);
+  count = Math.max(1, Number(count) || 1);
+  remaining = Math.floor(Number(remaining) || 0);
+  if (remaining < count) return 100;
+  if (remaining >= count * faces) return 0;
+
+  // Probability distribution truncated to totals that do not cause Burnout.
+  // This remains fast even with many lifetime uses because remaining Soul Burn,
+  // rather than the maximum possible roll, bounds the array.
+  let safeTotals = [1];
+  for (let die = 0; die < count; die += 1) {
+    const next = Array(remaining + 1).fill(0);
+    for (let total = 0; total < safeTotals.length; total += 1) {
+      if (!safeTotals[total]) continue;
+      for (let face = 1; face <= faces && total + face <= remaining; face += 1) {
+        next[total + face] += safeTotals[total] / faces;
+      }
+    }
+    safeTotals = next;
+  }
+  const safeChance = safeTotals.reduce((sum, probability) => sum + probability, 0);
+  return Math.min(100, Math.max(0, Math.round((1 - safeChance) * 1000) / 10));
 }
 
 function toleranceLine(value) {
@@ -834,7 +869,7 @@ async function activate(actor, token) {
     ).join("");
     const id = await choose(
       "Enter Soul Burn",
-      `<p>Choose and roll one available Hit Die to ignite Soul Burn. Entering Soul Burn does not expend it.</p><div class="form-group"><label>Hit Die</label><select name="classId">${options}</select></div>`,
+      `<p>Choose an available Hit Die type for the Soul Burn roll. Entering Soul Burn does not expend it. High Stakes Mode may roll multiple dice of the selected type.</p><div class="form-group"><label>Hit Die</label><select name="classId">${options}</select></div>`,
       {
         burn: { icon: '<i class="fas fa-fire"></i>', label: "Soul Burn", value: html => html.find('[name="classId"]').val() },
         cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: null }
@@ -845,13 +880,15 @@ async function activate(actor, token) {
   })();
   if (!chosen) return;
 
-  const chance = burnoutChance(chosen.faces, max - current.burn);
+  const diceCount = highStakesDiceCount(current);
+  const activationFormula = `${diceCount}d${chosen.faces}`;
+  const chance = burnoutChance(chosen.faces, max - current.burn, diceCount);
   const confirmed = await choose(
     "Confirm Soul Burn",
     `<p><strong>${esc(actor.name)}</strong> has ${current.burn} / ${max} Soul Burn.</p>
-     <p>Roll: 1d${chosen.faces}. Chance to exceed the maximum: <strong>${chance}%</strong>.</p>`,
+     <p>Roll: <strong>${activationFormula}</strong>${diceCount > 1 ? " (High Stakes Mode)" : ""}. Chance to exceed the maximum: <strong>${chance}%</strong>.</p>`,
     {
-      burn: { icon: '<i class="fas fa-fire"></i>', label: `Roll 1d${chosen.faces}`, value: true },
+      burn: { icon: '<i class="fas fa-fire"></i>', label: `Roll ${activationFormula}`, value: true },
       cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: false }
     },
     "cancel"
@@ -860,7 +897,7 @@ async function activate(actor, token) {
 
   // The character must have this die available, but entry only rolls it.
   // AetherSurge is the Soul Burn action that actually expends Hit Dice.
-  const roll = await makeRoll(`1d${chosen.faces}`);
+  const roll = await makeRoll(activationFormula);
   const staleMovementEffects = actor.effects
     .filter(effect => (effect.name ?? effect.label) === SB.effectName && effect.getFlag(SB.scope, "managed"))
     .map(effect => effect.id);
@@ -896,6 +933,7 @@ async function activate(actor, token) {
     actor,
     "Soul Burn",
     `<p><strong>${esc(actor.name)}</strong> gains double movement and one Soul Burn action each turn for <strong>${roll.total}</strong> rounds.</p>
+     <p><strong>Activation Roll:</strong> ${activationFormula}${diceCount > 1 ? " — High Stakes Mode" : ""}</p>
      <p>Soul Burn: <strong>${next.burn} / ${max}</strong>${next.burnout ? " — <strong>Burnout pending</strong>" : ""}</p>
      <p><strong>Movement:</strong> ${esc(movementSummary(baseMovement))} → <strong>${esc(movementSummary(baseMovement, 2))}</strong></p>
      ${trackCombat
@@ -1075,7 +1113,10 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
     }
   }
 
-  const roll = await makeRoll("1d20");
+  const roll = await makeRoll(
+    "max(1, 1d20 - @tolerance)",
+    { tolerance: current.tolerance }
+  );
   const hp = targetActor.system.attributes?.hp ?? {};
   const oldHp = Number(hp.value ?? 0);
   const maxHp = Number(hp.max ?? oldHp);
@@ -1086,7 +1127,7 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
   const cleansed = await cleanseAetherglowEffects(targetActor);
   const nextTolerance = Math.min(19, current.tolerance + 1);
   const healingSummary = `
-    <p><strong>Healing Roll:</strong> ${roll.total}</p>
+    <p><strong>Aetherglow Roll:</strong> max(1, 1d20 − AGT ${current.tolerance}) = ${roll.total}</p>
     <p><strong>Hit Points Restored:</strong> ${healing}</p>
     <p><strong>Hit Points:</strong> ${oldHp} → ${oldHp + healing} / ${maxHp}</p>
     <p><strong>Effects Removed:</strong> ${cleansed.length ? cleansed.map(esc).join(", ") : "None"}</p>`;
@@ -1095,20 +1136,20 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
     const next = { ...current, tolerance: nextTolerance };
     await saveMetadataOnly(targetActor, next);
     await chat(
-      targetActor,
+      sourceActor,
       "Aetherglow Consumed",
       `<p><strong>${esc(sourceActor.name)}</strong> gives Aetherglow to <strong>${esc(targetActor.name)}</strong>.</p>
        ${healingSummary}
        <p><strong>Soul Burn:</strong> No Soul Burn resource—no release required.</p>
-       <p><strong>AG Tolerance:</strong> ${current.tolerance} → ${next.tolerance}</p>
-       <p><em>AG Tolerance still rises because the soul remembers every exposure to Aetherglow.</em></p>`,
+       <p><strong>AGT:</strong> ${current.tolerance} → ${next.tolerance}</p>
+       <p><em>AGT still rises because the soul remembers every exposure to Aetherglow.</em></p>`,
       roll
     );
     return true;
   }
 
-  const removed = Math.max(1, roll.total - current.tolerance);
-  const blocked = Math.max(0, roll.total - removed);
+  const recovery = roll.total;
+  const removed = Math.min(current.burn, recovery);
   const next = {
     ...current,
     burn: Math.max(0, current.burn - removed),
@@ -1116,17 +1157,19 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
   };
   await saveState(targetActor, next);
   await chat(
-    targetActor,
+    sourceActor,
     "Aetherglow Consumed",
-    `<p><strong>${esc(sourceActor.name)}</strong> gives Aetherglow to <strong>${esc(targetActor.name)}</strong>.</p>
+     `<p><strong>${esc(sourceActor.name)}</strong> gives Aetherglow to <strong>${esc(targetActor.name)}</strong>.</p>
      ${healingSummary}
-     <p><strong>${esc(targetActor.name)}</strong> rolled <strong>${roll.total}</strong> to release Soul Burn.</p>
-     <p><strong>AG Tolerance:</strong> ${current.tolerance}</p>
-     <p><strong>Aetherglow Blocked:</strong> ${blocked}</p>
-     <p><strong>Soul Burn Removed:</strong> ${removed}</p>
+     <p><strong>Soul Burn Recovery:</strong> ${recovery}</p>
+     <p><strong>Soul Burn Cleared:</strong> ${removed}</p>
      <p><strong>Soul Burn:</strong> ${current.burn} → ${next.burn}</p>
-     <p><strong>AG Tolerance:</strong> ${current.tolerance} → ${next.tolerance}</p>
-     <p><em>${toleranceLine(next.tolerance)}</em></p>`,
+     <p><strong>AGT:</strong> ${current.tolerance} → ${next.tolerance}</p>
+     <p><em>${removed > 0
+       ? toleranceLine(next.tolerance)
+       : current.burn > 0
+         ? "The Aetherglow produces no Soul Burn recovery."
+         : "There is no Soul Burn left to clear."}</em></p>`,
     roll
   );
   return true;
@@ -1138,24 +1181,49 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
   );
   if (!amulet) throw new Error(`${sourceActor.name} does not have the Holy Amulet of Lux Eterna.`);
 
-  const candidates = game.actors
+  const playerCandidates = game.actors
     .filter(actor => actor.type === "character" && (actor.hasPlayerOwner || actor.id === sourceActor.id))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  if (!candidates.length) throw new Error("No player characters are available to receive Aetherglow.");
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(actor => ({ actor, uuid: actor.uuid, label: actor.name }));
+  const sceneNpcs = new Map();
+  for (const token of canvas.scene?.tokens ?? []) {
+    const actor = token.actor;
+    if (!actor || actor.type !== "npc") continue;
+    const key = token.actorLink ? actor.uuid : token.uuid;
+    if (!key || sceneNpcs.has(key)) continue;
+    sceneNpcs.set(key, {
+      actor,
+      uuid: token.uuid,
+      label: token.name || actor.name
+    });
+  }
+  const npcCandidates = [...sceneNpcs.values()]
+    .sort((a, b) => a.label.localeCompare(b.label));
+  if (!playerCandidates.length && !npcCandidates.length) {
+    throw new Error("No player characters or scene NPCs are available to receive Aetherglow.");
+  }
 
-  const options = candidates.map(actor => {
+  const optionFor = ({ actor, uuid, label }) => {
     const current = state(actor);
-    const selected = actor.id === sourceActor.id ? "selected" : "";
+    const selected = actor.uuid === sourceActor.uuid ? "selected" : "";
     const status = hasSoulBurnResource(actor)
       ? `Soul Burn ${current.burn}/${maximumBurn(actor)}`
       : "Heals HP";
-    return `<option value="${actor.id}" ${selected}>${esc(actor.name)} — ${status}, AG ${current.tolerance}</option>`;
-  }).join("");
-  const targetActorId = await choose(
+    return `<option value="${esc(uuid)}" ${selected}>${esc(label)} — ${status}, AGT ${current.tolerance}</option>`;
+  };
+  const groups = [
+    playerCandidates.length
+      ? `<optgroup label="Player Characters">${playerCandidates.map(optionFor).join("")}</optgroup>`
+      : "",
+    npcCandidates.length
+      ? `<optgroup label="Scene NPCs">${npcCandidates.map(optionFor).join("")}</optgroup>`
+      : ""
+  ].join("");
+  const targetActorUuid = await choose(
     "Give Aetherglow",
     `<p>Who receives this Aetherglow charge?</p>
-     <div class="form-group"><label>Recipient</label><select name="targetActor">${options}</select></div>
-     <p class="notes">The recipient rolls 1d20. Soul Burn users apply AG Tolerance and release at least 1 Soul Burn; other recipients heal from the roll. Every exposure raises AG Tolerance by 1.</p>`,
+     <div class="form-group"><label>Recipient</label><select name="targetActor">${groups}</select></div>
+     <p class="notes">Player characters are listed first, followed by NPCs on the active scene. Vehicles are excluded. The administrator rolls 1d20 when Give &amp; Roll is clicked. Soul Burn recipients apply AGT and release at least 1 Soul Burn; other recipients heal from the administration roll. Every exposure raises AGT by 1.</p>`,
     {
       give: {
         icon: '<i class="fas fa-flask"></i>',
@@ -1166,8 +1234,11 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
     },
     "give"
   );
-  if (!targetActorId) return false;
-  const targetActor = game.actors.get(targetActorId);
+  if (!targetActorUuid) return false;
+  const targetDocument = await fromUuid(targetActorUuid);
+  const targetActor = targetDocument?.documentName === "Actor"
+    ? targetDocument
+    : targetDocument?.actor ?? null;
   if (!targetActor) throw new Error("The selected Aetherglow recipient no longer exists.");
 
   if (!chargeAlreadySpent) await spendItemCharge(amulet, "The Holy Amulet of Lux Eterna");
@@ -1185,7 +1256,7 @@ async function consumeAetherglow(sourceActor, { item = null, chargeAlreadySpent 
     gmId: primaryGM.id,
     requesterId: game.user.id,
     sourceActorId: sourceActor.id,
-    targetActorId: targetActor.id
+    targetActorUuid
   });
   ui.notifications.info(`Aetherglow was offered to ${targetActor.name}. The GM is resolving it.`);
   return true;
@@ -1224,6 +1295,7 @@ async function showRules() {
     content: `<div class="soul-burn-rules">
       <h2>What is Soul Burn?</h2>
       <p>Soul Burn is a Bonus Action reservoir granted by interacting with Aether. To enter Soul Burn, you must have an available Hit Die and roll it without expending it; your soul begins to burn, pushing you beyond mortal limits.</p>
+      <p>If the GM enables High Stakes Mode, the first lifetime use rolls one die, the second rolls two, the third rolls three, and so on. The total determines Soul Burn gained and the duration in rounds.</p>
       <p>While Soul Burnin', you have double movement and one free Soul Burn action each turn.</p>
       <h2>Max Soul Burn</h2>
       <p>Your maximum Soul Burn is the total maximum of all your Hit Dice. If current Soul Burn exceeds that maximum, your soul becomes unstable and is permanently destroyed when the current burn period ends. This is Burnout.</p>
@@ -1246,7 +1318,7 @@ async function showPlayerUses(activeActor) {
     .map(a => {
       const s = state(a);
       return `<div style="margin-bottom:12px">
-        <p style="margin:0"><strong>${esc(cleanName(a.name))}:</strong> Uses ${s.uses} | <strong>AG Tolerance:</strong> 1d20-${s.tolerance}</p>
+        <p style="margin:0"><strong>${esc(cleanName(a.name))}:</strong> Uses ${s.uses} | <strong>AGT:</strong> 1d20-${s.tolerance}</p>
         <p style="margin:2px 0 0"><em>${toleranceLine(s.tolerance)}</em></p>
       </div>`;
     }).join("");
@@ -1254,7 +1326,7 @@ async function showPlayerUses(activeActor) {
   new Dialog({
     title: "Soul Burn Player Uses",
     content: `<p>Over time, repeated exposure to Aetherglow may dull your sensitivity to it, making it harder to release Soul Burn damage from your soul.</p>
-      <p>AG Tolerance is subtracted from any roll made to remove Soul Burn from your body.</p><hr>${entries || "<p>No player characters found.</p>"}`,
+      <p>AGT is subtracted from any roll made to remove Soul Burn from your body.</p><hr>${entries || "<p>No player characters found.</p>"}`,
     buttons: {
       close: { icon: '<i class="fas fa-times"></i>', label: "Close" }
     },
@@ -1268,6 +1340,7 @@ async function dashboard(actor, token) {
   const max = maximumBurn(actor);
   const dice = classData(actor);
   const primary = dice[0];
+  const nextDiceCount = highStakesDiceCount(current);
   const diceText = dice.length
     ? dice.map(c => `${esc(c.item.name)}: ${c.remaining}/${c.levels}d${c.faces}`).join("<br>")
     : "No class Hit Dice found";
@@ -1300,8 +1373,8 @@ async function dashboard(actor, token) {
         <h1 style="margin:0;border-bottom:1px solid var(--color-border-light-primary)">Soul Burnin'</h1>
         <p><strong>An ancient power drawn from the Luminara within grants the power to bend time and space, but at the cost of lifeforce.</strong></p>
         <p><strong>${esc(cleanName(actor.name))}</strong></p>
-        <p>Hit Die: ${primary ? `1d${primary.faces}` : "—"}</p>
-        <p>Soul Burn: <strong>${current.burn} / ${max}</strong> | Uses: ${current.uses} | Burnout Odds: <strong>${primary ? burnoutChance(primary.faces, max - current.burn) : 0}%</strong></p>
+        <p>Next Soul Burn Roll: ${primary ? `${nextDiceCount}d${primary.faces}` : "—"}${nextDiceCount > 1 ? " <strong>(High Stakes)</strong>" : ""}</p>
+        <p>Soul Burn: <strong>${current.burn} / ${max}</strong> | Uses: ${current.uses} | Burnout Odds: <strong>${primary ? burnoutChance(primary.faces, max - current.burn, nextDiceCount) : 0}%</strong></p>
         ${current.active ? `<p>Status: <strong>ACTIVE</strong>${current.burnout ? " | <strong>Burnout pending</strong>" : ""}<br>${diceText}</p>` : ""}
         ${combatWarning}
         <div style="display:flex;justify-content:center;gap:8px;margin:10px 0">
@@ -1436,7 +1509,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.10"
+    version: "1.0.11"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -1446,8 +1519,22 @@ Hooks.once("ready", async () => {
     if (request.type !== "consumeAetherglow") return;
     const requester = game.users.get(request.requesterId);
     const sourceActor = game.actors.get(request.sourceActorId);
-    const targetActor = game.actors.get(request.targetActorId);
+    const targetDocument = request.targetActorUuid
+      ? await fromUuid(request.targetActorUuid)
+      : game.actors.get(request.targetActorId);
+    const targetActor = targetDocument?.documentName === "Actor"
+      ? targetDocument
+      : targetDocument?.actor ?? null;
     if (!requester || !sourceActor || !targetActor) return;
+    const sceneNpcAllowed = targetActor.type === "npc"
+      && (canvas.scene?.tokens ?? []).some(token =>
+        token.uuid === request.targetActorUuid
+        || token.actor?.uuid === targetActor.uuid
+      );
+    if (targetActor.type !== "character" && !sceneNpcAllowed) {
+      console.warn("Soul Burn | Rejected invalid Aetherglow recipient.", request);
+      return;
+    }
     if (!sourceActor.testUserPermission(requester, "OWNER")) {
       console.warn("Soul Burn | Rejected unauthorized Aetherglow request.", request);
       return;

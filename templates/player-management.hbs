@@ -1,6 +1,6 @@
 <form class="soul-burn-player-manager">
   <p class="notes">
-    Manage player Soul Burn data. AG Tolerance reduces the amount removed by
+    Manage player Soul Burn data. AGT reduces the amount removed by
     Aetherglow and increases by one after each use, to a maximum of 19.
   </p>
 
@@ -8,7 +8,7 @@
     <span>Character</span>
     <span>Soul Burn</span>
     <span>Uses</span>
-    <span>AG Tolerance</span>
+    <span>AGT</span>
     <span>Status</span>
     <span>Controls</span>
   </div>
@@ -35,7 +35,7 @@
       {{#if burnout}}<strong class="soul-burn-danger">Burnout</strong>{{/if}}
     </span>
     <span class="soul-burn-player-controls">
-      <button type="button" data-reset-tolerance="{{id}}" title="Reset AG Tolerance">AG 0</button>
+      <button type="button" data-reset-tolerance="{{id}}" title="Reset AGT">AGT 0</button>
     </span>
   </div>
   {{else}}
@@ -44,6 +44,6 @@
 
   <footer class="sheet-footer flexrow">
     <button type="submit"><i class="fas fa-save"></i> Save Changes</button>
-    <button type="button" data-reset-all-tolerance><i class="fas fa-rotate-left"></i> Reset All AG Tolerance</button>
+    <button type="button" data-reset-all-tolerance><i class="fas fa-rotate-left"></i> Reset All AGT</button>
   </footer>
 </form>

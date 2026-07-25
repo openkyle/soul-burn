@@ -41,6 +41,17 @@
   <hr>
 
   <div class="form-group">
+    <label>High Stakes Mode</label>
+    <div class="form-fields">
+      <input type="checkbox" name="highStakesMode" {{checked highStakesMode}}>
+    </div>
+    <p class="hint">
+      Multiplies the activation roll by lifetime Uses: first use 1 die, second
+      use 2 dice, third use 3 dice, and so on. The total sets Soul Burn and rounds.
+    </p>
+  </div>
+
+  <div class="form-group">
     <label>Constitution Check on End</label>
     <div class="form-fields">
       <input type="checkbox" name="requireEndConSave" {{checked requireEndConSave}}>

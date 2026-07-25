@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.11
+
+- Added a **Scene NPCs** group beneath **Player Characters** in the Give
+  Aetherglow recipient dropdown.
+- Includes each NPC Actor represented by a token on the active scene, supports
+  linked and unlinked tokens, deduplicates shared linked Actors, and continues
+  to exclude vehicles.
+- Changed all user-facing legacy tolerance labels to **AGT** without changing or
+  resetting the existing stored tolerance values.
+- Added optional GM-controlled **High Stakes Mode**. The first lifetime Soul
+  Burn use rolls one chosen Hit Die, the second rolls two, the third rolls
+  three, and so on; the total determines both Soul Burn gained and rounds.
+- Added exact multi-die Burnout probability calculations to the dashboard and
+  activation confirmation.
+- Clarified and enforced that the Aetherglow administrator makes the `1d20`
+  roll; the recipient receives its effects but is not the roll's chat speaker.
+- Changed Aetherglow administration to roll `max(1, 1d20 - AGT)`.
+- AGT remains capped at 19, while Aetherglow always restores at least 1 HP and
+  provides at least 1 point of Soul Burn recovery.
+- Removed the misleading Aetherglow Blocked field. Chat now reports the
+  recovery result and the amount of existing Soul Burn actually cleared.
+
 ## 1.0.10
 
 - Added an upgrade cleanup for the stale, unopenable `AetherSurgeFeat`
@@ -65,7 +87,7 @@
   Aether chat cards.
 - Confirmed that only character Actors appear in Player Uses and GM player
   management; vehicles and NPCs are excluded.
-- Simplified persistent Soul Burn bookkeeping to lifetime Uses and AG Tolerance
+- Simplified persistent Soul Burn bookkeeping to lifetime Uses and AGT
   plus active transformation/combat state.
 
 ## 1.0.5
@@ -93,7 +115,7 @@
 - Configured the amulet as a trinket with 6 limited charges, one-action use,
   healing action type, 1 lb. weight, and 230 gp value.
 - One `1d20` roll now heals every recipient and also releases Soul Burn for
-  configured recipients after applying AG Tolerance.
+  configured recipients after applying AGT.
 - Added removal of charmed, poisoned, petrified, temporary ability-score
   reductions, and temporary maximum-HP reductions.
 - Added direct-use charge spending and one-use locking for Aetherglow chat
@@ -112,8 +134,8 @@
   player's Actor.
 - Aetherglow now releases Soul Burn for configured Actors or heals `1d20` HP
   without touching unrelated tertiary resources.
-- Added a GM player-management settings screen for Soul Burn, uses, AG
-  Tolerance, Channel Aether, and active/Burnout status.
+- Added a GM player-management settings screen for Soul Burn, uses, AGT, and
+  active/Burnout status.
 - Dropping the Soul Burn feature now configures the Actor's tertiary resource,
   and existing feature holders are repaired on the next GM world load.
 - Hardened chat-card action buttons for Foundry V11/dnd5e 2.4.1.

@@ -88,17 +88,20 @@ transformation ends.
 The player declares a rule bend, break, or modification for GM approval. The
 declaration is whispered to every active GM. Fate Shift then ends Soul Burn.
 
-### Aetherglow and AG Tolerance
+### Aetherglow and AGT
 
-Consuming Aetherglow rolls `1d20` and removes:
+The administering character rolls:
 
 ```text
-max(1, roll - AG Tolerance)
+max(1, 1d20 - AGT)
 ```
 
-Each use increases AG Tolerance by 1, to a maximum of 19. The chat card reports
-the raw roll, blocked amount, Soul Burn removed, before/after resource values,
-and before/after tolerance.
+AGT cannot exceed 19, and the final result cannot be less than 1. Aetherglow
+therefore always restores at least 1 HP and provides at least 1 point of Soul
+Burn recovery. Actual Soul Burn cleared cannot exceed the recipient's current
+Soul Burn. The chat card shows the clamped formula, result, actual Soul Burn
+cleared, resource values, and AGT change. There is no “Aetherglow Blocked”
+value.
 
 ## Compatibility and requirements
 
@@ -182,16 +185,18 @@ card. The module does not add a control to the top of character sheets.
 The compendium's Legendary **Holy Amulet of Lux Eterna** equipment is the only
 Aetherglow trigger; there is no separate Aetherglow macro. It is a 1 lb.
 trinket worth 230 gp with six limited charges. Its chat-card button asks which
-player character receives the Aetherglow.
+player character or active-scene NPC receives the Aetherglow. Vehicles are
+excluded.
 
-- Every recipient heals from the same `1d20` roll.
+- The administrator makes the `1d20` roll; the recipient does not roll.
+- Every recipient heals from that administration roll.
 - A recipient with `Soul Burn` as the tertiary resource also releases Soul
-  Burn using that roll after AG Tolerance.
+  Burn using that roll after AGT.
 - A recipient without that resource is still healed, and their unrelated
   tertiary resource is never renamed or changed.
 - The amulet removes charmed, poisoned, petrified, temporary ability-score
   reductions, and temporary maximum-HP reductions.
-- Every exposure raises AG Tolerance by 1, to a maximum of 19.
+- Every exposure raises AGT by 1, to a maximum of 19.
 - If a player gives it to an Actor they do not own, an active GM securely
   performs the document update.
 - Direct activation spends a charge. A normal dnd5e item use spends its charge
@@ -200,9 +205,9 @@ player character receives the Aetherglow.
 ### GM player management
 
 Under **Configure Settings → Module Settings → Soul Burn Players**, the GM can
-review and edit player Soul Burn, lifetime uses, AG Tolerance, and Channel
-Aether status. Active entries also show their individually tracked combat
-rounds. The screen includes per-player and party-wide tolerance resets.
+review and edit player Soul Burn, lifetime uses, and AGT. Active entries also
+show their individually tracked combat rounds. The screen includes per-player
+and party-wide AGT resets.
 
 ### Combat duration and ending
 
@@ -232,6 +237,13 @@ Configure the ending sound and optional Constitution check under **Configure
 Settings → Module Settings → Soul Burn Settings**. The ending-sound field uses
 Foundry's audio browser and includes Preview and Restore Bundled Sound buttons.
 
+That screen also includes optional **High Stakes Mode**. When enabled, the
+first lifetime Soul Burn use rolls `1` chosen Hit Die, the second rolls `2`,
+the third rolls `3`, and so on. The summed result increases Soul Burn and sets
+the combat duration. Entry still requires an available Hit Die without
+expending it. The dashboard and confirmation show the multi-die formula and
+its exact Burnout odds.
+
 ## Interface
 
 The primary dialog intentionally follows the original campaign interface:
@@ -239,12 +251,13 @@ The primary dialog intentionally follows the original campaign interface:
 - Character name and Hit Die
 - `Soul Burn: current / maximum`
 - Use count and live Burnout odds
-- **Player Uses** for the campaign roster and AG Tolerance
+- **Player Uses** for the campaign roster and AGT
 - **More Info** for the complete rules
 - **SOUL BURN** with a separate risk-confirmation dialog
 
-When the character is actively Soul Burning, the same dialog also exposes
-AetherSurge, Channel Aether, Fate Shift, and End Burn.
+When the character is actively Soul Burning, the dialog retains Player Uses
+and More Info, then presents one full-width **End Soul Burn** button. The three
+combat actions remain together in the dedicated Soul Burn sheet tab.
 
 ## Token and Actor resolution
 
@@ -266,7 +279,7 @@ avoids journal permission failures and character-name parsing bugs.
 Stored metadata includes:
 
 - Total lifetime uses
-- AG Tolerance
+- AGT
 - Active/inactive state
 - Pending Burnout
 - Combat start/end rounds
