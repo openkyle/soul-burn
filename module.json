@@ -9,7 +9,7 @@
   },
   "authors": [
     {
-      "name": "edgedoggo"
+      "name": "openkyle"
     }
   ],
   "esmodules": [
@@ -46,8 +46,8 @@
       }
     ]
   },
-  "url": "https://github.com/edgedoggo/soul-burn",
-  "manifest": "https://github.com/edgedoggo/soul-burn/releases/latest/download/module.json",
-  "download": "https://github.com/edgedoggo/soul-burn/releases/latest/download/soul-burn.zip",
+  "url": "https://github.com/openkyle/soul-burn",
+  "manifest": "https://github.com/openkyle/soul-burn/releases/latest/download/module.json",
+  "download": "https://github.com/openkyle/soul-burn/releases/latest/download/soul-burn.zip",
   "license": "LICENSE"
 }
