@@ -121,6 +121,23 @@
         </div>
         <p class="hint">The target number for the end-of-burn check.</p>
       </div>
+
+      <hr>
+
+      <div class="form-group">
+        <label>Fate Shift Countdown</label>
+        <div class="form-fields">
+          <input type="number" name="fateShiftTimerSeconds" value="{{fateShiftTimerSeconds}}" min="1" max="600" step="1">
+          <span class="units">seconds</span>
+        </div>
+        <p class="hint">Real time given to the player to describe how they bend reality.</p>
+      </div>
+
+      <div class="form-group stacked">
+        <label>Fate Shift Message</label>
+        <textarea name="fateShiftTimerMessage" rows="3">{{fateShiftTimerMessage}}</textarea>
+        <p class="hint">Use <code>{seconds}</code> where the live number of remaining seconds should appear.</p>
+      </div>
     </div>
   </section>
 

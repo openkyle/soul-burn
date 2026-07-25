@@ -18,6 +18,9 @@ const SB = {
   defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
   defaultAetherglowSound: "modules/soul-burn/sounds/AetherGlow.ogg",
   defaultEndSound: "modules/soul-burn/sounds/RagePowerDown.ogg",
+  defaultFateShiftSeconds: 30,
+  defaultFateShiftMessage:
+    "You have {seconds} seconds to describe how you are bending reality to your will. The GM will adjudicate.",
   sacredFlame:
     "modules/jb2a_patreon/Library/Cantrip/Sacred_Flame/SacredFlameTarget_01_Regular_Yellow_400x400.webm"
 };
@@ -57,6 +60,8 @@ class SoulBurnSoundSettings extends FormApplication {
         "applyExhaustionOnFailedConCheck"
       ),
       endConSaveDC: game.settings.get("soul-burn", "endConSaveDC"),
+      fateShiftTimerSeconds: game.settings.get("soul-burn", "fateShiftTimerSeconds"),
+      fateShiftTimerMessage: game.settings.get("soul-burn", "fateShiftTimerMessage"),
       defaultPowerUpSound: SB.defaultPowerUpSound,
       defaultAetherglowSound: SB.defaultAetherglowSound,
       defaultEndSound: SB.defaultEndSound
@@ -144,6 +149,20 @@ class SoulBurnSoundSettings extends FormApplication {
       "soul-burn",
       "endConSaveDC",
       Math.min(30, Math.max(1, Number(formData.endConSaveDC) || 10))
+    );
+    await game.settings.set(
+      "soul-burn",
+      "fateShiftTimerSeconds",
+      Math.min(
+        600,
+        Math.max(1, Number(formData.fateShiftTimerSeconds) || SB.defaultFateShiftSeconds)
+      )
+    );
+    await game.settings.set(
+      "soul-burn",
+      "fateShiftTimerMessage",
+      String(formData.fateShiftTimerMessage ?? "").trim()
+        || SB.defaultFateShiftMessage
     );
     ui.notifications.info("Soul Burn settings saved.");
   }
@@ -343,6 +362,22 @@ Hooks.once("init", () => {
     config: false,
     type: Number,
     default: 10
+  });
+  game.settings.register("soul-burn", "fateShiftTimerSeconds", {
+    name: "Fate Shift Countdown",
+    hint: "Real-time seconds available to describe a Fate Shift.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: SB.defaultFateShiftSeconds
+  });
+  game.settings.register("soul-burn", "fateShiftTimerMessage", {
+    name: "Fate Shift Countdown Message",
+    hint: "Message shown during the countdown. Use {seconds} for the remaining seconds.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: SB.defaultFateShiftMessage
   });
   game.settings.registerMenu("soul-burn", "soundSettings", {
     name: "Soul Burn Settings",
@@ -2231,14 +2266,6 @@ function bindTidySoulBurnInventory(section, actor) {
       if (item) await item.use();
     });
   }
-  for (const control of section.querySelectorAll("[data-sb-item-card]")) {
-    control.addEventListener("click", async event => {
-      event.preventDefault();
-      event.stopPropagation();
-      const item = actor.items.get(event.currentTarget.dataset.sbItemCard);
-      if (item) await item.displayCard();
-    });
-  }
   for (const control of section.querySelectorAll("[data-sb-item-view]")) {
     control.addEventListener("click", event => {
       event.preventDefault();
@@ -2402,7 +2429,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.25"
+    version: "1.0.26"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -2659,6 +2686,83 @@ Hooks.on("preCreateChatMessage", (_message, data) => {
 });
 
 const resolvingNativeSoulBurnItems = new Set();
+const activeFateShiftCountdowns = new Map();
+
+function fateShiftCountdownMessage(seconds) {
+  const configured = String(
+    game.settings.get("soul-burn", "fateShiftTimerMessage")
+      || SB.defaultFateShiftMessage
+  );
+  if (configured.includes("{seconds}")) {
+    return configured.replaceAll("{seconds}", String(seconds));
+  }
+  return `${configured} ${seconds} seconds remain.`;
+}
+
+async function showFateShiftCountdown(actor) {
+  if (activeFateShiftCountdowns.has(actor.id)) {
+    return activeFateShiftCountdowns.get(actor.id);
+  }
+
+  const countdown = new Promise(resolve => {
+    const totalSeconds = Math.min(
+      600,
+      Math.max(
+        1,
+        Number(game.settings.get("soul-burn", "fateShiftTimerSeconds"))
+          || SB.defaultFateShiftSeconds
+      )
+    );
+    const endsAt = Date.now() + totalSeconds * 1000;
+    let interval = null;
+    let finished = false;
+    let dialog = null;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (interval) clearInterval(interval);
+      resolve();
+    };
+    const update = html => {
+      const millisecondsLeft = Math.max(0, endsAt - Date.now());
+      const secondsLeft = Math.ceil(millisecondsLeft / 1000);
+      const percent = totalSeconds > 0
+        ? Math.max(0, Math.min(100, millisecondsLeft / (totalSeconds * 10)))
+        : 0;
+      html.find("[data-fate-shift-message]")
+        .text(fateShiftCountdownMessage(secondsLeft));
+      html.find("[data-fate-shift-countdown]").text(`${secondsLeft}s`);
+      html.find("[data-fate-shift-progress]").css("width", `${percent}%`);
+      if (millisecondsLeft <= 0) dialog?.close();
+    };
+
+    dialog = new Dialog({
+      title: `Fate Shift — ${actor.name}`,
+      content: `<div class="soul-burn-fate-countdown">
+        <p data-fate-shift-message></p>
+        <div class="soul-burn-fate-progress-track" role="progressbar"
+             aria-label="Fate Shift time remaining">
+          <div class="soul-burn-fate-progress-fill" data-fate-shift-progress></div>
+        </div>
+        <p class="soul-burn-fate-time" data-fate-shift-countdown></p>
+      </div>`,
+      buttons: {},
+      render: html => {
+        update(html);
+        interval = setInterval(() => update(html), 100);
+      },
+      close: finish
+    }, {
+      width: 480,
+      resizable: false
+    });
+    dialog.render(true);
+  }).finally(() => activeFateShiftCountdowns.delete(actor.id));
+
+  activeFateShiftCountdowns.set(actor.id, countdown);
+  return countdown;
+}
 
 async function resolveNativeSoulBurnItemUse(document) {
   const item = document?.documentName === "Item" ? document : document?.item;
@@ -2681,6 +2785,7 @@ async function resolveNativeSoulBurnItemUse(document) {
       return;
     }
     if (action === "fate") {
+      await showFateShiftCountdown(actor);
       await endBurn(actor, "Fate Shift");
       return;
     }

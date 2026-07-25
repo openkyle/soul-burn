@@ -78,10 +78,11 @@ temporary Items. It also creates a managed **Exit Soul Burn** Item from the
 permanent Soul Burn feature. Tidy5e Sheet shows all four as regular usable rows
 in a collapsible **Soul Burn** section above Weapons on the Inventory tab.
 
-Each row can use the underlying dnd5e Item, post its Item card, and open its
-locked Item sheet for details. Native Item use handles attack rolls, Channel
-Aether charges, and other system consumption; module hooks handle AetherSurge's
-Hit Die and the Fate Shift/Exit ending workflows.
+The Item name and dice icon both perform the same native dnd5e Item use. The
+information icon opens the locked Item sheet for details. Native Item use
+handles attack rolls, Channel Aether charges, and other system consumption;
+module hooks handle AetherSurge's Hit Die and the Fate Shift/Exit ending
+workflows.
 
 The four managed copies are hidden from duplicate Actions and Features
 listings. When Soul Burn ends—through Exit Soul Burn, Fate Shift, or combat
@@ -96,8 +97,9 @@ transformation ends.
 ### Fate Shift
 
 Fate Shift is used as a normal dnd5e Item. Its description provides the
-rule-bending terms, and using it ends Soul Burn without opening a custom text
-box.
+rule-bending terms. Using it opens a real-time countdown and progress bar before
+Soul Burn ends. The GM controls the countdown length and message under the
+Mechanics settings; `{seconds}` is replaced with the live remaining time.
 
 ### AetherGlow and AGT
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.26
+
+- Reduced the height, icon size, controls, and typography of the active
+  TidySheet Soul Burn Inventory section.
+- Clicking a Soul Burn Item name now performs the same native Item use as its
+  dice button. Item names no longer have a separate chat-card-only behavior;
+  the information icon remains details-only.
+- Fate Shift now opens a real-time countdown dialog with a golden progress bar
+  before completing the end-of-burn workflow.
+- Added GM Mechanics settings for Fate Shift countdown seconds and customizable
+  countdown copy. The message supports a live `{seconds}` placeholder.
+
 ## 1.0.25
 
 - Soul Burn chat-card controls are now generated from the Item's

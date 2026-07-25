@@ -245,11 +245,12 @@
 .soul-burn-inventory-heading {
   display: grid;
   grid-template-columns: minmax(190px, 1fr) auto;
-  min-height: 36px;
+  min-height: 30px;
   align-items: center;
   gap: 0.65rem;
-  padding: 0 0.35rem 0 0.6rem;
+  padding: 0 0.35rem 0 0.5rem;
   color: var(--t5e-primary-font-color, inherit);
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   list-style: none;
@@ -288,9 +289,10 @@
 
 .soul-burn-inventory-row {
   display: grid;
-  grid-template-columns: 42px minmax(180px, 1fr) 80px 120px 74px;
-  min-height: 42px;
+  grid-template-columns: 34px minmax(180px, 1fr) 72px 112px 64px;
+  min-height: 34px;
   align-items: center;
+  font-size: 0.9rem;
   background: rgba(236, 207, 127, 0.16);
   border-bottom: 1px solid rgba(127, 97, 47, 0.25);
 }
@@ -300,15 +302,15 @@
 }
 
 .soul-burn-inventory-row > img {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   object-fit: cover;
   border: 0;
   border-right: 1px solid rgba(127, 97, 47, 0.25);
 }
 
 .soul-burn-inventory-name {
-  height: 42px;
+  height: 34px;
   margin: 0;
   padding: 0 0.55rem;
   overflow: hidden;
@@ -341,13 +343,48 @@
 }
 
 .soul-burn-inventory-controls button {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   margin: 0;
   padding: 0;
   color: inherit;
-  line-height: 28px;
+  line-height: 24px;
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+
+.soul-burn-fate-countdown {
+  padding: 0.35rem 0.25rem 0.15rem;
+  text-align: center;
+}
+
+.soul-burn-fate-countdown [data-fate-shift-message] {
+  min-height: 2.5em;
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.soul-burn-fate-progress-track {
+  height: 18px;
+  overflow: hidden;
+  background: rgba(45, 31, 10, 0.25);
+  border: 1px solid #7f581a;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.soul-burn-fate-progress-fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #8f4d05, #e2a62f, #fff0a3);
+  box-shadow: 0 0 8px rgba(255, 196, 57, 0.75);
+}
+
+.soul-burn-fate-time {
+  margin: 0.45rem 0 0;
+  color: #6d4307;
+  font-size: 1.25rem;
+  font-weight: 800;
 }
