@@ -878,6 +878,19 @@ function configureRegularSoulBurnItem(data, action, actor) {
     data.img = "modules/soul-burn/icons/aethersurge.png";
     data.system.actionType = "other";
     data.system.formula = `1d${largest}`;
+    // This modifies the user's resolved attack or damage roll; it must never
+    // attach an Item result to a selected battlefield token or clear targets.
+    data.system.target = {
+      value: null,
+      width: null,
+      units: "",
+      type: "self"
+    };
+    data.system.range = {
+      value: null,
+      long: null,
+      units: "self"
+    };
     // dnd5e 2.4.1 does not expose Hit Dice as a standard Item consumption
     // target. The post-use hook below expends the die without replacing the
     // Item's normal roll/chat workflow.
@@ -2760,7 +2773,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.32"
+    version: "1.0.33"
   });
 
   await cleanLegacyCompendiumIndex();

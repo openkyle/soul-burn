@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.33
+
+- Made **Aether Surge** explicitly self-targeting in both the compendium source
+  and every managed Actor copy.
+- Existing battlefield targets are no longer attached to Aether Surge or
+  treated as recipients. The player's target selection remains intact for the
+  triggering attack.
+
 ## 1.0.32
 
 - Added the optional **Escalating Constitution DC** mechanic. The first

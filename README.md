@@ -53,6 +53,10 @@ Using the temporary Item makes its ordinary dnd5e roll and expends the largest
 available class Hit Die. The player applies the result to either the attack or
 damage roll described by the feature.
 
+Aether Surge is explicitly self-targeting. It never applies an Item result to
+a selected battlefield target, and it leaves the player's target selection
+intact for the triggering attack.
+
 ### Channel Aether
 
 Channel Aether has a number of uses equal to the character's proficiency bonus.
