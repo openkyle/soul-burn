@@ -12,14 +12,15 @@ The macro is designed for both workflows:
 ## Soul Burn rules
 
 Soul Burn is a Bonus Action reservoir granted through interaction with Aether.
-Entering Soul Burn costs one Hit Die. The die is rolled and its result is added
-to the character's Soul Burn resource.
+Entering Soul Burn requires at least one available Hit Die. The chosen die is
+rolled to determine the Soul Burn increase and round duration, but it is not
+expended. Hit Dice are expended afterward by AetherSurge.
 
 While Soul Burn is active, the character receives:
 
 - Double movement.
 - One free Soul Burn action each turn.
-- Access to AetherStrike, Channel Aether, and Fate Shift.
+- Access to AetherSurge, Channel Aether, and Fate Shift.
 - A dedicated Tidy5e **Soul Burn** character-sheet tab while transformed.
 
 ### Maximum and Burnout
@@ -37,7 +38,7 @@ If current Soul Burn exceeds that maximum, Burnout is marked as pending. The
 soul is destroyed at the end of the current burn period. For safety, the macro
 announces this result but never deletes the Actor.
 
-### AetherStrike
+### AetherSurge
 
 After an attack hits, spend and roll one available class Hit Die. Apply the
 result to either:
@@ -67,7 +68,7 @@ Channel-used flag and provides no reset control.
 
 ### Temporary Soul Burn action tab
 
-When a character enters Soul Burn, the module copies AetherStrike, Channel
+When a character enters Soul Burn, the module copies AetherSurge, Channel
 Aether, and Fate Shift from **Soul Burn Features** onto that Actor as managed
 temporary Items. Tidy5e Sheet shows them together in a dedicated top-level
 **Soul Burn** tab with clickable controls and live Channel Aether charges.
@@ -76,6 +77,11 @@ The managed copies are hidden from the normal Actions, Inventory, and Features
 areas. When Soul Burn ends—manually, through Fate Shift, or through combat
 expiry—the module deletes only those managed copies and the tab disappears.
 Existing permanent Items with the same names are never deleted.
+
+The owned **Soul Burn** feature is locked against player editing and deletion;
+GMs can still edit it. While active, its sheet name and chat-card control become
+**Exit Soul Burn**. Both return to **Soul Burn** / **Enter Soul Burn** when the
+transformation ends.
 
 ### Fate Shift
 
@@ -140,7 +146,7 @@ Configure the constant at the top of
 
 The module includes one compendium pack:
 
-- **Soul Burn Features** contains Soul Burn, AetherStrike, Channel Aether,
+- **Soul Burn Features** contains Soul Burn, AetherSurge, Channel Aether,
   Fate Shift, and the Holy Amulet of Lux Eterna. Drag these onto a player
   character sheet.
   Each feature includes a button that runs its module-managed action for the
@@ -238,7 +244,7 @@ The primary dialog intentionally follows the original campaign interface:
 - **SOUL BURN** with a separate risk-confirmation dialog
 
 When the character is actively Soul Burning, the same dialog also exposes
-AetherStrike, Channel Aether, Fate Shift, and End Burn.
+AetherSurge, Channel Aether, Fate Shift, and End Burn.
 
 ## Token and Actor resolution
 

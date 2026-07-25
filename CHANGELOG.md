@@ -1,9 +1,26 @@
 # Changelog
 
+## 1.0.8
+
+- Renamed AetherStrike to **AetherSurge** throughout the module, compendium,
+  chat cards, rules, action tab, icons, and documentation.
+- Added automatic cleanup of legacy managed AetherStrike action copies.
+- Locked the owned Soul Burn feature against player edits and deletion while
+  preserving its usable chat-card workflow; GMs retain full control.
+- While the transformation is active, the owned feature is renamed **Exit Soul
+  Burn** and its chat-card button ends Soul Burn.
+- When the transformation ends, the feature returns to **Soul Burn** and its
+  button returns to Enter Soul Burn.
+- Enter Soul Burn now opens the original Luminara dashboard with Player Uses,
+  More Info, status, Burnout odds, and the final activation control instead of
+  skipping directly to Hit Die confirmation.
+- Entering Soul Burn now requires and rolls an available Hit Die without
+  expending it; AetherSurge remains the action that consumes Hit Dice.
+
 ## 1.0.7
 
 - Added a dedicated **Soul Burn** top tab to Tidy5e character sheets.
-- Entering Soul Burn copies managed temporary versions of AetherStrike,
+- Entering Soul Burn copies managed temporary versions of AetherSurge,
   Channel Aether, and Fate Shift from the module compendium to the character.
 - The dedicated tab presents the three actions with their supplied artwork,
   activation details, clickable workflows, and Channel Aether's live charges.
@@ -61,7 +78,7 @@
 
 ## 1.0.3
 
-- Replaced the Soul Burn, AetherStrike, Channel Aether, and Fate Shift icons
+- Replaced the Soul Burn, AetherSurge, Channel Aether, and Fate Shift icons
   with the supplied campaign art.
 - Consolidated all player content into the **Soul Burn Features** Item
   compendium and removed the redundant Macro compendium.
@@ -78,7 +95,7 @@
 
 ## 1.0.2
 
-- Added the **Soul Burn Features** compendium with Soul Burn, AetherStrike,
+- Added the **Soul Burn Features** compendium with Soul Burn, AetherSurge,
   Channel Aether, Fate Shift, and Aetherglow character features.
 - Added the **Soul Burn Macros** compendium with the launcher macro.
 - Added functional feature-sheet buttons that call the owning Actor's module
@@ -101,7 +118,7 @@
 - Added player/GM Actor and token resolution.
 - Added multiclass-aware Hit Die consumption.
 - Added Burnout odds and pending Burnout tracking.
-- Added AetherStrike, Channel Aether, Fate Shift, and Aetherglow workflows.
+- Added AetherSurge, Channel Aether, Fate Shift, and Aetherglow workflows.
 - Added managed double-movement Active Effect.
 - Preserved the supplied Sequencer, JB2A, TokenMagic, and token-swap animation.
 - Added safe animation fallbacks and token-image restoration.

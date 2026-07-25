@@ -11,7 +11,7 @@ const SB = {
   key: "soulBurn",
   effectName: "Soul Burn",
   pack: "soul-burn.soul-burn-features",
-  temporaryActions: ["strike", "channel", "fate"],
+  temporaryActions: ["surge", "channel", "fate"],
   transformedTokenRoot:
     "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/CharTokens/AstrumKnights",
   defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
@@ -397,12 +397,25 @@ function isTemporarySoulBurnAction(item) {
   return Boolean(item?.getFlag(SB.scope, "temporaryAction"));
 }
 
+function normalizedSoulBurnAction(item) {
+  const flagged = item?.getFlag?.(SB.scope, "action");
+  if (flagged === "strike") return "surge";
+  if (SB.temporaryActions.includes(flagged)) return flagged;
+
+  const id = String(item?.id ?? item?._id ?? "");
+  const name = String(item?.name ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  if (
+    ["AetherStrikeFeat", "AetherSurgeFeat"].includes(id)
+    || ["aetherstrike", "aethersurge"].includes(name)
+  ) return "surge";
+  if (id === "ChannelAetherFt1" || name === "channelaether") return "channel";
+  if (id === "FateShiftFeature" || name === "fateshift") return "fate";
+  return flagged ?? null;
+}
+
 function temporarySoulBurnActions(actor) {
   return actor?.items
-    ?.filter(item =>
-      isTemporarySoulBurnAction(item)
-      && SB.temporaryActions.includes(item.getFlag(SB.scope, "action"))
-    ) ?? [];
+    ?.filter(item => isTemporarySoulBurnAction(item)) ?? [];
 }
 
 async function ensureTemporarySoulBurnActions(actor) {
@@ -412,8 +425,14 @@ async function ensureTemporarySoulBurnActions(actor) {
   const keep = new Map();
   const duplicates = [];
   for (const item of managed) {
-    const action = item.getFlag(SB.scope, "action");
-    if (keep.has(action)) duplicates.push(item.id);
+    const action = normalizedSoulBurnAction(item);
+    const legacySurge = action === "surge" && (
+      item.getFlag(SB.scope, "action") !== "surge"
+      || item.name !== "AetherSurge"
+    );
+    if (!SB.temporaryActions.includes(action) || legacySurge || keep.has(action)) {
+      duplicates.push(item.id);
+    }
     else keep.set(action, item);
   }
   if (duplicates.length) await actor.deleteEmbeddedDocuments("Item", duplicates);
@@ -424,7 +443,7 @@ async function ensureTemporarySoulBurnActions(actor) {
     if (!pack) throw new Error("The Soul Burn Features compendium is unavailable.");
     const sourceItems = await pack.getDocuments();
     const sourceByAction = new Map(
-      sourceItems.map(item => [item.getFlag(SB.scope, "action"), item])
+      sourceItems.map(item => [normalizedSoulBurnAction(item), item])
     );
     const creates = missing.map(action => {
       const source = sourceByAction.get(action);
@@ -434,16 +453,24 @@ async function ensureTemporarySoulBurnActions(actor) {
       data.flags ??= {};
       data.flags[SB.scope] = {
         ...(data.flags[SB.scope] ?? {}),
+        action,
         temporaryAction: true
       };
       data.flags.core = {
         ...(data.flags.core ?? {}),
         sourceId: source.uuid
       };
+      if (action === "surge") {
+        data.name = "AetherSurge";
+        data.img = "modules/soul-burn/icons/aethersurge.png";
+        data.system.description.value = String(data.system.description?.value ?? "")
+          .replaceAll("AetherStrike", "AetherSurge")
+          .replaceAll('data-soul-burn-action="strike"', 'data-soul-burn-action="surge"');
+      }
       return data;
     });
     const created = await actor.createEmbeddedDocuments("Item", creates);
-    for (const item of created) keep.set(item.getFlag(SB.scope, "action"), item);
+    for (const item of created) keep.set(normalizedSoulBurnAction(item), item);
   }
 
   return SB.temporaryActions.map(action => keep.get(action)).filter(Boolean);
@@ -460,6 +487,40 @@ function renderActorSheetSoon(actor) {
   // full sheet render, so this makes the conditional Soul Burn tab appear or
   // disappear immediately when the transformation state changes.
   setTimeout(() => actor.sheet.render(true), 25);
+}
+
+function soulBurnFeature(actor) {
+  return actor?.items?.find(item => item.getFlag(SB.scope, "action") === "activate") ?? null;
+}
+
+async function syncSoulBurnFeature(actor, active = state(actor).active) {
+  const item = soulBurnFeature(actor);
+  if (!item) return;
+
+  let description = String(item.system.description?.value ?? "");
+  if (active) {
+    description = description
+      .replaceAll('data-soul-burn-action="open"', 'data-soul-burn-action="end"')
+      .replaceAll('data-soul-burn-action="activate"', 'data-soul-burn-action="end"')
+      .replaceAll("Enter Soul Burn", "Exit Soul Burn");
+  } else {
+    description = description
+      .replaceAll('data-soul-burn-action="activate"', 'data-soul-burn-action="open"')
+      .replaceAll('data-soul-burn-action="end"', 'data-soul-burn-action="open"')
+      .replaceAll("Exit Soul Burn", "Enter Soul Burn");
+  }
+
+  const name = active ? "Exit Soul Burn" : "Soul Burn";
+  if (item.name === name && description === item.system.description?.value) return;
+  await actor.updateEmbeddedDocuments(
+    "Item",
+    [{
+      _id: item.id,
+      name,
+      "system.description.value": description
+    }],
+    { soulBurnInternal: true }
+  );
 }
 
 async function saveState(actor, next) {
@@ -708,7 +769,7 @@ async function activate(actor, token) {
     ).join("");
     const id = await choose(
       "Enter Soul Burn",
-      `<p>Spend one Hit Die to ignite Soul Burn.</p><div class="form-group"><label>Hit Die</label><select name="classId">${options}</select></div>`,
+      `<p>Choose and roll one available Hit Die to ignite Soul Burn. Entering Soul Burn does not expend it.</p><div class="form-group"><label>Hit Die</label><select name="classId">${options}</select></div>`,
       {
         burn: { icon: '<i class="fas fa-fire"></i>', label: "Soul Burn", value: html => html.find('[name="classId"]').val() },
         cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: null }
@@ -732,11 +793,8 @@ async function activate(actor, token) {
   );
   if (!confirmed) return;
 
-  // Consume first, then roll. This prevents repeated activation from duplicating a die.
-  await actor.updateEmbeddedDocuments("Item", [{
-    _id: chosen.item.id,
-    "system.hitDiceUsed": chosen.used + 1
-  }]);
+  // The character must have this die available, but entry only rolls it.
+  // AetherSurge is the Soul Burn action that actually expends Hit Dice.
   const roll = await makeRoll(`1d${chosen.faces}`);
   const staleMovementEffects = actor.effects
     .filter(effect => (effect.name ?? effect.label) === SB.effectName && effect.getFlag(SB.scope, "managed"))
@@ -760,10 +818,14 @@ async function activate(actor, token) {
     baseMovement
   };
 
+  // Resolve and copy all three compendium actions before changing the active
+  // state. A missing/cached compendium entry can no longer leave the Actor
+  // marked active without the temporary action set.
+  await ensureTemporarySoulBurnActions(actor);
   await applyMovement(actor);
   await playAnimation(token, next);
   await saveState(actor, next);
-  await ensureTemporarySoulBurnActions(actor);
+  await syncSoulBurnFeature(actor, true);
   renderActorSheetSoon(actor);
   await chat(
     actor,
@@ -778,14 +840,14 @@ async function activate(actor, token) {
   );
 }
 
-async function aetherStrike(actor) {
+async function aetherSurge(actor) {
   const current = state(actor);
-  if (!current.active) throw new Error("AetherStrike requires active Soul Burn.");
-  const die = await consumeHitDie(actor, "AetherStrike");
+  if (!current.active) throw new Error("AetherSurge requires active Soul Burn.");
+  const die = await consumeHitDie(actor, "AetherSurge");
   if (!die) return;
   const roll = await makeRoll(`1d${die.faces}`);
   const use = await choose(
-    "AetherStrike",
+    "AetherSurge",
     `<p>You rolled <strong>${roll.total}</strong>. Apply it to one roll only.</p>`,
     {
       attack: { icon: '<i class="fas fa-crosshairs"></i>', label: "Attack Roll", value: "attack roll" },
@@ -793,7 +855,7 @@ async function aetherStrike(actor) {
     },
     "damage"
   );
-  await chat(actor, "AetherStrike", `<p>Add <strong>+${roll.total}</strong> to the ${esc(use)} of the triggering attack.</p>`, roll);
+  await chat(actor, "AetherSurge", `<p>Add <strong>+${roll.total}</strong> to the ${esc(use)} of the triggering attack.</p>`, roll);
 }
 
 async function spendItemCharge(item, label) {
@@ -862,6 +924,7 @@ async function endBurn(actor, reason = "Soul Burn ends") {
     baseMovement: {},
     originalImages: {}
   });
+  await syncSoulBurnFeature(actor, false);
   renderActorSheetSoon(actor);
 
   let constitutionRoll = null;
@@ -1073,8 +1136,11 @@ async function runSoulBurnAction(action, {
     const subject = await resolveSubject(actor, token);
     if (!subject) return;
     const actions = {
+      open: () => dashboard(subject.actor, subject.token),
       activate: () => activate(subject.actor, subject.token),
-      strike: () => aetherStrike(subject.actor),
+      surge: () => aetherSurge(subject.actor),
+      // Compatibility for chat cards created before AetherStrike was renamed.
+      strike: () => aetherSurge(subject.actor),
       channel: () => channelAether(subject.actor, { item, chargeAlreadySpent }),
       fate: () => fateShift(subject.actor),
       glow: () => consumeAetherglow(subject.actor, { item, chargeAlreadySpent }),
@@ -1092,11 +1158,11 @@ async function showRules() {
     title: "Soul Burn Rules",
     content: `<div class="soul-burn-rules">
       <h2>What is Soul Burn?</h2>
-      <p>Soul Burn is a Bonus Action reservoir granted by interacting with Aether. To enter Soul Burn, spend a Hit Die; your soul begins to burn, pushing you beyond mortal limits.</p>
+      <p>Soul Burn is a Bonus Action reservoir granted by interacting with Aether. To enter Soul Burn, you must have an available Hit Die and roll it without expending it; your soul begins to burn, pushing you beyond mortal limits.</p>
       <p>While Soul Burnin', you have double movement and one free Soul Burn action each turn.</p>
       <h2>Max Soul Burn</h2>
       <p>Your maximum Soul Burn is the total maximum of all your Hit Dice. If current Soul Burn exceeds that maximum, your soul becomes unstable and is permanently destroyed when the current burn period ends. This is Burnout.</p>
-      <h2>AetherStrike: Utilizing Hit Dice (1 Action)</h2>
+      <h2>AetherSurge: Utilizing Hit Dice (1 Action)</h2>
       <p>Once per attack after you hit, spend and roll a Hit Die. Add it to either the attack roll or the damage roll, but not both. Added damage is Radiant.</p>
       <h2>Channel Aether (1 Action or Reaction, 2 Charges)</h2>
       <p>Spend one of the feature's two charges and make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
@@ -1150,7 +1216,7 @@ async function dashboard(actor, token) {
 
   const activeButtons = current.active ? `
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px">
-      <button type="button" data-sb-action="strike"><i class="fas fa-burst"></i> AetherStrike</button>
+      <button type="button" data-sb-action="surge"><i class="fas fa-burst"></i> AetherSurge</button>
       <button type="button" data-sb-action="channel"><i class="fas fa-sun"></i> Channel Aether</button>
       <button type="button" data-sb-action="fate"><i class="fas fa-wand-magic-sparkles"></i> Fate Shift</button>
       <button type="button" data-sb-action="end"><i class="fas fa-stop"></i> End Burn</button>
@@ -1271,6 +1337,18 @@ Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
       }
     }
   }
+
+  const feature = soulBurnFeature(actor);
+  if (!feature || game.user.isGM) return;
+  for (const node of root.querySelectorAll(`[data-item-id="${feature.id}"]`)) {
+    node.classList.add("soul-burn-feature-locked");
+    node.setAttribute("title", "Soul Burn is managed by the module and locked for players.");
+    for (const control of node.querySelectorAll(
+      ".item-edit, .item-delete, [data-action='edit'], [data-action='delete']"
+    )) {
+      control.classList.add("soul-burn-managed-hidden");
+    }
+  }
 });
 
 Hooks.once("ready", async () => {
@@ -1278,7 +1356,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.7"
+    version: "1.0.8"
   });
 
   game.socket.on("module.soul-burn", async request => {
@@ -1307,6 +1385,7 @@ Hooks.once("ready", async () => {
     if (hasSoulBurn) await initializeSoulBurnResource(actor);
     if (state(actor).active) await ensureTemporarySoulBurnActions(actor);
     else await removeTemporarySoulBurnActions(actor);
+    if (hasSoulBurn) await syncSoulBurnFeature(actor, state(actor).active);
   }
   if (game.combat) await expireDueSoulBurn(game.combat);
 
@@ -1349,7 +1428,50 @@ Hooks.on("createItem", async (item, _options, userId) => {
   if (userId !== game.user.id) return;
   if (item.getFlag("soul-burn", "action") !== "activate") return;
   await initializeSoulBurnResource(item.parent);
+  await syncSoulBurnFeature(item.parent, state(item.parent).active);
   ui.notifications.info(`${item.parent.name}'s tertiary resource is configured as Soul Burn.`);
+});
+
+Hooks.on("preUpdateItem", (item, _changes, options, userId) => {
+  if (options?.soulBurnInternal) return true;
+  if (!item.parent || item.getFlag(SB.scope, "action") !== "activate") return true;
+  const user = game.users.get(userId);
+  if (user?.isGM) return true;
+  if (userId === game.user.id) {
+    ui.notifications.warn("Soul Burn is managed by the module and cannot be edited by players.");
+  }
+  return false;
+});
+
+Hooks.on("preDeleteItem", (item, options, userId) => {
+  if (options?.soulBurnInternal) return true;
+  if (!item.parent || item.getFlag(SB.scope, "action") !== "activate") return true;
+  const user = game.users.get(userId);
+  if (user?.isGM) return true;
+  if (userId === game.user.id) {
+    ui.notifications.warn("Soul Burn is managed by the module and cannot be deleted by players.");
+  }
+  return false;
+});
+
+Hooks.on("renderItemSheet", (app, html) => {
+  const item = app.item;
+  if (
+    game.user.isGM
+    || !item?.parent
+    || item.getFlag(SB.scope, "action") !== "activate"
+  ) return;
+
+  const sheetHtml = html?.jquery ? html : $(html);
+  sheetHtml.addClass("soul-burn-locked-item-sheet");
+  sheetHtml.find("input, textarea, select").prop("disabled", true);
+  sheetHtml.find("button").not("[data-soul-burn-action]").prop("disabled", true);
+  if (!sheetHtml.find(".soul-burn-lock-notice").length) {
+    sheetHtml.prepend(
+      '<div class="soul-burn-lock-notice"><i class="fas fa-lock"></i> '
+      + "Soul Burn is module-managed. Only a GM can edit or delete it.</div>"
+    );
+  }
 });
 
 const expiringSoulBurnActors = new Set();

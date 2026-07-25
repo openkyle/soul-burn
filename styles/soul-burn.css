@@ -85,6 +85,24 @@
   display: none !important;
 }
 
+.soul-burn-feature-locked::after {
+  content: "\f023";
+  margin-left: 0.35rem;
+  color: #846b3d;
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+}
+
+.soul-burn-lock-notice {
+  margin: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  color: #4a2b00;
+  font-weight: 700;
+  background: rgba(228, 178, 75, 0.3);
+  border: 1px solid #9b6a1e;
+  border-radius: 4px;
+}
+
 .soul-burn-action-panel {
   padding: 0.75rem;
 }
