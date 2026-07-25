@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.9
+
+- Reuses existing owned AetherSurge, Channel Aether, and Fate Shift Items while
+  Soul Burn is active instead of creating duplicate managed copies.
+- Automatically removes a managed temporary duplicate when a permanent action
+  Item already exists.
+- Migrates legacy owned AetherStrike Items to AetherSurge, including their
+  action flag, icon, description button, and displayed name.
+- Preserves AetherSurge's original compendium document ID so module upgrades
+  replace AetherStrike instead of leaving a second stale compendium entry.
+- Isolates both reused and temporary Soul Burn actions in the dedicated Tidy
+  tab while active; only module-created temporary Items are deleted on exit.
+
 ## 1.0.8
 
 - Renamed AetherStrike to **AetherSurge** throughout the module, compendium,

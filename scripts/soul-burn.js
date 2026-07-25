@@ -418,11 +418,57 @@ function temporarySoulBurnActions(actor) {
     ?.filter(item => isTemporarySoulBurnAction(item)) ?? [];
 }
 
+function allOwnedSoulBurnActionItems(actor) {
+  return actor?.items
+    ?.filter(item => SB.temporaryActions.includes(normalizedSoulBurnAction(item))) ?? [];
+}
+
+function ownedSoulBurnActionItems(actor) {
+  const byAction = new Map();
+  const candidates = allOwnedSoulBurnActionItems(actor)
+    .sort((a, b) =>
+      Number(isTemporarySoulBurnAction(a)) - Number(isTemporarySoulBurnAction(b))
+    );
+  for (const item of candidates) {
+    const action = normalizedSoulBurnAction(item);
+    if (!byAction.has(action)) byAction.set(action, item);
+  }
+  return SB.temporaryActions.map(action => byAction.get(action)).filter(Boolean);
+}
+
 async function ensureTemporarySoulBurnActions(actor) {
   if (!actor || actor.type !== "character") return [];
 
+  const legacySurges = actor.items
+    .filter(item =>
+      normalizedSoulBurnAction(item) === "surge"
+      && (
+        item.getFlag(SB.scope, "action") === "strike"
+        || item.name === "AetherStrike"
+      )
+    )
+    .map(item => ({
+      _id: item.id,
+      name: "AetherSurge",
+      img: "modules/soul-burn/icons/aethersurge.png",
+      "flags.soul-burn.action": "surge",
+      "system.description.value": String(item.system.description?.value ?? "")
+        .replaceAll("AetherStrike", "AetherSurge")
+        .replaceAll('data-soul-burn-action="strike"', 'data-soul-burn-action="surge"')
+    }));
+  if (legacySurges.length) {
+    await actor.updateEmbeddedDocuments("Item", legacySurges, { soulBurnInternal: true });
+  }
+
   const managed = temporarySoulBurnActions(actor);
-  const keep = new Map();
+  const keep = new Map(
+    actor.items
+      .filter(item =>
+        !isTemporarySoulBurnAction(item)
+        && SB.temporaryActions.includes(normalizedSoulBurnAction(item))
+      )
+      .map(item => [normalizedSoulBurnAction(item), item])
+  );
   const duplicates = [];
   for (const item of managed) {
     const action = normalizedSoulBurnAction(item);
@@ -473,7 +519,7 @@ async function ensureTemporarySoulBurnActions(actor) {
     for (const item of created) keep.set(normalizedSoulBurnAction(item), item);
   }
 
-  return SB.temporaryActions.map(action => keep.get(action)).filter(Boolean);
+  return ownedSoulBurnActionItems(actor);
 }
 
 async function removeTemporarySoulBurnActions(actor) {
@@ -1291,16 +1337,16 @@ Hooks.once("tidy5e-sheet.ready", api => {
       getData: async data => {
         const actor = data.actor;
         const current = state(actor);
-        const actions = temporarySoulBurnActions(actor)
+        const actions = ownedSoulBurnActionItems(actor)
           .sort((a, b) =>
-            SB.temporaryActions.indexOf(a.getFlag(SB.scope, "action"))
-            - SB.temporaryActions.indexOf(b.getFlag(SB.scope, "action"))
+            SB.temporaryActions.indexOf(normalizedSoulBurnAction(a))
+            - SB.temporaryActions.indexOf(normalizedSoulBurnAction(b))
           )
           .map(item => {
             const uses = item.system.uses ?? {};
             return {
               id: item.id,
-              action: item.getFlag(SB.scope, "action"),
+              action: normalizedSoulBurnAction(item),
               name: item.name,
               img: item.img,
               activation: item.system.activation?.type
@@ -1330,7 +1376,10 @@ Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
   if (!actor || actor.type !== "character") return;
   const root = element instanceof HTMLElement ? element : element?.[0];
   if (!root) return;
-  for (const item of temporarySoulBurnActions(actor)) {
+  const itemsToIsolate = state(actor).active
+    ? allOwnedSoulBurnActionItems(actor)
+    : temporarySoulBurnActions(actor);
+  for (const item of itemsToIsolate) {
     for (const node of root.querySelectorAll(`[data-item-id="${item.id}"]`)) {
       if (!node.closest(".soul-burn-tidy-tab")) {
         node.classList.add("soul-burn-managed-hidden");
@@ -1356,7 +1405,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.8"
+    version: "1.0.9"
   });
 
   game.socket.on("module.soul-burn", async request => {
