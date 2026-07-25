@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.17
+
+- Replaced the separate Soul Burn character-sheet tab with a Tidy-native,
+  collapsible **Soul Burn** section injected above Weapons on the Inventory
+  tab.
+- Displays AetherSurge, Channel Aether, and Fate Shift as ordinary owned dnd5e
+  Items with their normal use and chat-card workflows.
+- Removed the custom Channel Aether ability chooser and Fate Shift declaration
+  text box from the active Item workflow.
+- Added a far-right **Exit Soul Burn** control to the Inventory section.
+- Early exit now removes 1 Soul Burn point per wholly unused future combat
+  round.
+- In High Stakes Mode, the full multi-die total increases Soul Burn while the
+  first die alone determines the active duration.
+- AetherSurge's normal Item use now expends the character's largest available
+  Hit Die on dnd5e 2.4.1 and newer supported versions.
+
 ## 1.0.16
 
 - Intercepts Tidy's direct `Item#displayCard` path on dnd5e 2.4.1 as well as

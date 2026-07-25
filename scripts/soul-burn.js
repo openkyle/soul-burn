@@ -398,6 +398,7 @@ function state(actor) {
     combatId: saved.combatId ?? null,
     startedRound: saved.startedRound ?? null,
     endsRound: saved.endsRound ?? null,
+    durationRounds: Number(saved.durationRounds ?? 0),
     baseMovement: saved.baseMovement ?? {},
     originalImages: saved.originalImages ?? {}
   };
@@ -437,13 +438,60 @@ function ownedSoulBurnActionItems(actor) {
   const byAction = new Map();
   const candidates = allOwnedSoulBurnActionItems(actor)
     .sort((a, b) =>
-      Number(isTemporarySoulBurnAction(a)) - Number(isTemporarySoulBurnAction(b))
+      Number(isTemporarySoulBurnAction(b)) - Number(isTemporarySoulBurnAction(a))
     );
   for (const item of candidates) {
     const action = normalizedSoulBurnAction(item);
     if (!byAction.has(action)) byAction.set(action, item);
   }
   return SB.temporaryActions.map(action => byAction.get(action)).filter(Boolean);
+}
+
+function stripSoulBurnActionButtons(description) {
+  return String(description ?? "").replace(
+    /<p>\s*<button[^>]*data-soul-burn-action="(?:surge|strike|channel|fate)"[\s\S]*?<\/button>\s*<\/p>/gi,
+    ""
+  );
+}
+
+function configureRegularSoulBurnItem(data, action, actor) {
+  const hitDice = classData(actor);
+  const availableHitDice = hitDice.filter(entry => entry.remaining > 0);
+  const largest = Math.max(
+    1,
+    ...(availableHitDice.length ? availableHitDice : hitDice).map(entry => entry.faces)
+  );
+  const level = hitDice.reduce((sum, entry) => sum + entry.levels, 0);
+  data.system.description ??= {};
+  data.system.description.value = stripSoulBurnActionButtons(
+    data.system.description?.value
+  );
+
+  if (action === "surge") {
+    data.name = "AetherSurge";
+    data.img = "modules/soul-burn/icons/aethersurge.png";
+    data.system.actionType = "other";
+    data.system.formula = `1d${largest}`;
+    // dnd5e 2.4.1 does not expose Hit Dice as a standard Item consumption
+    // target. The post-use hook below expends the die without replacing the
+    // Item's normal roll/chat workflow.
+    data.system.consume = { type: "", target: null, amount: null };
+  } else if (action === "channel") {
+    data.system.ability = "";
+    data.system.actionType = "rsak";
+    data.system.damage = {
+      ...(data.system.damage ?? {}),
+      parts: [[`1d${largest} + ${level}`, "radiant"]]
+    };
+  } else if (action === "fate") {
+    data.system.actionType = "other";
+    data.system.formula = "";
+    data.system.uses = {
+      ...(data.system.uses ?? {}),
+      prompt: true
+    };
+  }
+  return data;
 }
 
 async function ensureTemporarySoulBurnActions(actor) {
@@ -471,14 +519,7 @@ async function ensureTemporarySoulBurnActions(actor) {
   }
 
   const managed = temporarySoulBurnActions(actor);
-  const keep = new Map(
-    actor.items
-      .filter(item =>
-        !isTemporarySoulBurnAction(item)
-        && SB.temporaryActions.includes(normalizedSoulBurnAction(item))
-      )
-      .map(item => [normalizedSoulBurnAction(item), item])
-  );
+  const keep = new Map();
   const duplicates = [];
   for (const item of managed) {
     const action = normalizedSoulBurnAction(item);
@@ -491,7 +532,13 @@ async function ensureTemporarySoulBurnActions(actor) {
     }
     else keep.set(action, item);
   }
-  if (duplicates.length) await actor.deleteEmbeddedDocuments("Item", duplicates);
+  if (duplicates.length) {
+    await actor.deleteEmbeddedDocuments(
+      "Item",
+      duplicates,
+      { soulBurnInternal: true }
+    );
+  }
 
   const missing = SB.temporaryActions.filter(action => !keep.has(action));
   if (missing.length) {
@@ -523,18 +570,32 @@ async function ensureTemporarySoulBurnActions(actor) {
           .replaceAll("AetherStrike", "AetherSurge")
           .replaceAll('data-soul-burn-action="strike"', 'data-soul-burn-action="surge"');
       }
-      return data;
+      return configureRegularSoulBurnItem(data, action, actor);
     });
     const created = await actor.createEmbeddedDocuments("Item", creates);
     for (const item of created) keep.set(normalizedSoulBurnAction(item), item);
   }
 
-  return ownedSoulBurnActionItems(actor);
+  const updates = [...keep.entries()].map(([action, item]) => {
+    const data = configureRegularSoulBurnItem(item.toObject(), action, actor);
+    data._id = item.id;
+    return data;
+  });
+  if (updates.length) {
+    await actor.updateEmbeddedDocuments("Item", updates, { soulBurnInternal: true });
+  }
+  return temporarySoulBurnActions(actor);
 }
 
 async function removeTemporarySoulBurnActions(actor) {
   const ids = temporarySoulBurnActions(actor).map(item => item.id);
-  if (ids.length) await actor.deleteEmbeddedDocuments("Item", ids);
+  if (ids.length) {
+    await actor.deleteEmbeddedDocuments(
+      "Item",
+      ids,
+      { soulBurnInternal: true }
+    );
+  }
 }
 
 async function cleanLegacyCompendiumIndex() {
@@ -568,7 +629,8 @@ function renderActorSheetSoon(actor) {
 
   // PopOut! moves an application's DOM into another browser window while
   // retaining the Foundry Application object. Refresh every rendered Actor
-  // application so Tidy rebuilds its conditional navigation in either place.
+  // application so Tidy rebuilds its conditional Inventory content in either
+  // place.
   setTimeout(() => {
     for (const app of applications) {
       if (!app?.rendered) continue;
@@ -962,6 +1024,14 @@ async function activate(actor, token) {
   // The character must have this die available, but entry only rolls it.
   // AetherSurge is the Soul Burn action that actually expends Hit Dice.
   const roll = await makeRoll(activationFormula);
+  const durationRounds = Math.max(
+    1,
+    Number(
+      diceCount > 1
+        ? roll.dice?.[0]?.results?.[0]?.result
+        : roll.total
+    ) || 1
+  );
   const staleMovementEffects = actor.effects
     .filter(effect => (effect.name ?? effect.label) === SB.effectName && effect.getFlag(SB.scope, "managed"))
     .map(effect => effect.id);
@@ -980,7 +1050,8 @@ async function activate(actor, token) {
     burnout: current.burn + roll.total > max,
     combatId: trackCombat ? combat.id : null,
     startedRound: trackCombat ? combatRound : null,
-    endsRound: trackCombat ? combatRound + roll.total : null,
+    endsRound: trackCombat ? combatRound + durationRounds : null,
+    durationRounds,
     baseMovement
   };
 
@@ -991,14 +1062,14 @@ async function activate(actor, token) {
   await applyMovement(actor);
   await playAnimation(token, next);
   await saveState(actor, next);
-  await ensureTidySoulBurnTabSelected(actor);
   await syncSoulBurnFeature(actor, true);
   renderActorSheetSoon(actor);
   await chat(
     actor,
     "Soul Burn",
-    `<p><strong>${esc(actor.name)}</strong> gains double movement and one Soul Burn action each turn for <strong>${roll.total}</strong> rounds.</p>
-     <p><strong>Activation Roll:</strong> ${activationFormula}${diceCount > 1 ? " — High Stakes Mode" : ""}</p>
+    `<p><strong>${esc(actor.name)}</strong> gains double movement and one Soul Burn action each turn for <strong>${durationRounds}</strong> rounds.</p>
+     <p><strong>Soul Burn Roll:</strong> ${activationFormula} = ${roll.total}${diceCount > 1 ? " — High Stakes Mode" : ""}</p>
+     ${diceCount > 1 ? `<p><strong>Duration Die:</strong> The first d${chosen.faces} rolled ${durationRounds}; only that die determines the duration.</p>` : ""}
      <p>Soul Burn: <strong>${next.burn} / ${max}</strong>${next.burnout ? " — <strong>Burnout pending</strong>" : ""}</p>
      <p><strong>Movement:</strong> ${esc(movementSummary(baseMovement))} → <strong>${esc(movementSummary(baseMovement, 2))}</strong></p>
      ${trackCombat
@@ -1072,6 +1143,16 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   const current = state(actor);
   if (!current.active) return;
 
+  const activeCombat = game.combat;
+  const currentRound = Number(activeCombat?.round ?? 0);
+  const unusedRounds = current.combatId
+    && activeCombat?.id === current.combatId
+    && current.endsRound !== null
+    && currentRound < Number(current.endsRound)
+    ? Math.max(0, Number(current.endsRound) - currentRound - 1)
+    : 0;
+  const burnRefund = Math.min(current.burn, unusedRounds);
+
   const endSound = soundPath("endSound");
   if (endSound) {
     try {
@@ -1085,10 +1166,12 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   await removeTemporarySoulBurnActions(actor);
   await saveState(actor, {
     ...current,
+    burn: current.burn - burnRefund,
     active: false,
     combatId: null,
     startedRound: null,
     endsRound: null,
+    durationRounds: 0,
     baseMovement: {},
     originalImages: {}
   });
@@ -1111,6 +1194,9 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   const durationSummary = current.combatId && current.startedRound !== null
     ? `<p><strong>Tracked Period:</strong> Round ${current.startedRound} through the end of round ${Number(current.endsRound) - 1}.</p>`
     : "";
+  const refundSummary = burnRefund > 0
+    ? `<p><strong>Early Exit:</strong> ${unusedRounds} unused round${unusedRounds === 1 ? "" : "s"} removed <strong>${burnRefund} Soul Burn</strong> (${current.burn} → ${current.burn - burnRefund}).</p>`
+    : "";
   const restoredMovement = movementSpeeds(actor);
   const movementRestoredSummary = `
     <p><strong>Movement Restored:</strong> ${esc(movementSummary(restoredMovement))}</p>`;
@@ -1118,7 +1204,7 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   await chat(
     actor,
     finale ? `${actor.name} — Burnout` : reason,
-    `${durationSummary}${movementRestoredSummary}${finale
+    `${durationSummary}${refundSummary}${movementRestoredSummary}${finale
       ? `<p><strong>${esc(finale.style)}</strong></p><p>${finale.text}</p>`
       : `<p>${esc(actor.name)} transforms back and is no longer Soul Burning.</p>`}
      ${constitutionSummary}`,
@@ -1361,7 +1447,7 @@ async function showRules() {
     content: `<div class="soul-burn-rules">
       <h2>What is Soul Burn?</h2>
       <p>Soul Burn is a Bonus Action reservoir granted by interacting with Aether. To enter Soul Burn, you must have an available Hit Die and roll it without expending it; your soul begins to burn, pushing you beyond mortal limits.</p>
-      <p>If the GM enables High Stakes Mode, the first lifetime use rolls one die, the second rolls two, the third rolls three, and so on. The total determines Soul Burn gained and the duration in rounds.</p>
+      <p>If the GM enables High Stakes Mode, the first lifetime use rolls one die, the second rolls two, the third rolls three, and so on. The total increases Soul Burn, while the first die alone determines the duration in rounds.</p>
       <p>While Soul Burnin', you have double movement and one free Soul Burn action each turn.</p>
       <h2>Max Soul Burn</h2>
       <p>Your maximum Soul Burn is the total maximum of all your Hit Dice. If current Soul Burn exceeds that maximum, your soul becomes unstable and is permanently destroyed when the current burn period ends. This is Burnout.</p>
@@ -1481,9 +1567,9 @@ async function openSoulBurn({ actor = null, token = null } = {}) {
   }
 }
 
-function soulBurnTabData(actor) {
+function soulBurnInventoryData(actor) {
   const current = state(actor);
-  const actions = ownedSoulBurnActionItems(actor)
+  const actions = temporarySoulBurnActions(actor)
     .sort((a, b) =>
       SB.temporaryActions.indexOf(normalizedSoulBurnAction(a))
       - SB.temporaryActions.indexOf(normalizedSoulBurnAction(b))
@@ -1495,63 +1581,95 @@ function soulBurnTabData(actor) {
         action: normalizedSoulBurnAction(item),
         name: item.name,
         img: item.img,
-        activation: item.system.activation?.type
-          ? CONFIG.DND5E.activationTypes?.[item.system.activation.type]?.label
-            ?? item.system.activation.type
-          : "",
+        activation: item.labels?.activation
+          ?? CONFIG.DND5E.abilityActivationTypes?.[item.system.activation?.type]
+          ?? item.system.activation?.type
+          ?? "Special",
         hasUses: Number(uses.max ?? 0) > 0,
         uses: Number(uses.value ?? 0),
         maxUses: Number(uses.max ?? 0)
       };
     });
   return {
+    actorId: actor.id,
     actorName: actor.name,
+    isGM: game.user.isGM,
     actions,
-    tracked: Boolean(current.combatId && current.startedRound !== null),
-    startedRound: current.startedRound,
-    lastRound: current.endsRound === null ? null : Number(current.endsRound) - 1
+    roundsLabel: current.combatId && current.endsRound !== null && game.combat?.id === current.combatId
+      ? `${Math.max(0, Number(current.endsRound) - Number(game.combat.round ?? 0))} rounds remain`
+      : current.durationRounds > 0
+        ? `${current.durationRounds} rounds (manual)`
+        : "Manual duration"
   };
 }
 
-async function ensureTidySoulBurnTabSelected(actor) {
+async function removeLegacyTidySoulBurnTabSelection(actor) {
   if (!game.modules.get("tidy5e-sheet")?.active || actor?.type !== "character") return;
-
-  let selected = actor.getFlag("tidy5e-sheet", "selected-tabs");
-  if (!Array.isArray(selected) || !selected.length) {
-    try {
-      selected = game.settings.get("tidy5e-sheet", "defaultCharacterSheetTabs");
-    } catch (_error) {
-      selected = [
-        "actions", "attributes", "inventory", "spellbook",
-        "features", "effects", "biography", "journal"
-      ];
-    }
-  }
-  selected = [...selected];
-  if (selected.includes("soul-burn-actions")) return;
-
-  const actionsIndex = selected.findIndex(id => id === "actions");
-  selected.splice(actionsIndex >= 0 ? actionsIndex + 1 : 0, 0, "soul-burn-actions");
-  await actor.setFlag("tidy5e-sheet", "selected-tabs", selected);
+  const selected = actor.getFlag("tidy5e-sheet", "selected-tabs");
+  if (!Array.isArray(selected) || !selected.includes("soul-burn-actions")) return;
+  await actor.setFlag(
+    "tidy5e-sheet",
+    "selected-tabs",
+    selected.filter(id => id !== "soul-burn-actions")
+  );
 }
 
 Hooks.once("tidy5e-sheet.ready", api => {
-  api.registerCharacterTab(
-    new api.models.HandlebarsTab({
-      title: "Soul Burn",
-      tabId: "soul-burn-actions",
-      path: "/modules/soul-burn/templates/soul-burn-tab.hbs",
-      tabContentsClasses: ["soul-burn-tidy-tab"],
+  const inventoryItemsSelector = api.getSheetPartSelector(
+    api.constants.SHEET_PARTS.ITEMS_CONTAINER
+  );
+  api.registerCharacterContent(
+    new api.models.HandlebarsContent({
+      path: "/modules/soul-burn/templates/soul-burn-inventory.hbs",
       enabled: context =>
         context.actor?.type === "character"
         && state(context.actor).active,
-      getData: async data => soulBurnTabData(data.actor)
+      injectParams: {
+        selector: `[data-tab-contents-for="${api.constants.TAB_CHARACTER_INVENTORY}"] ${inventoryItemsSelector}`,
+        position: "afterbegin"
+      },
+      getData: async data => soulBurnInventoryData(data.actor),
+      onRender: ({ app, element }) => {
+        const actor = app.actor;
+        const section = [...element.querySelectorAll(".soul-burn-inventory-section")]
+          .find(node => node.dataset.actorId === actor?.id);
+        if (!actor || !section) return;
+
+        section.querySelector("[data-sb-exit]")?.addEventListener("click", async event => {
+          event.preventDefault();
+          event.stopPropagation();
+          await endBurn(actor, "Soul Burn Ended Early");
+        });
+        for (const control of section.querySelectorAll("[data-sb-item-use]")) {
+          control.addEventListener("click", async event => {
+            event.preventDefault();
+            event.stopPropagation();
+            const item = actor.items.get(event.currentTarget.dataset.sbItemUse);
+            if (item) await item.use();
+          });
+        }
+        for (const control of section.querySelectorAll("[data-sb-item-card]")) {
+          control.addEventListener("click", async event => {
+            event.preventDefault();
+            event.stopPropagation();
+            const item = actor.items.get(event.currentTarget.dataset.sbItemCard);
+            if (item) await item.displayCard();
+          });
+        }
+        for (const control of section.querySelectorAll("[data-sb-item-edit]")) {
+          control.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            actor.items.get(event.currentTarget.dataset.sbItemEdit)?.sheet.render(true);
+          });
+        }
+      }
     }),
-    { layout: "all", includeAsDefaultTab: true }
+    { layout: "all" }
   );
 });
 
-Hooks.on("tidy5e-sheet.renderActorSheet", async (app, element) => {
+Hooks.on("tidy5e-sheet.renderActorSheet", (app, element) => {
   const actor = app.actor;
   if (!actor || actor.type !== "character") return;
   const root = element instanceof HTMLElement ? element : element?.[0];
@@ -1561,7 +1679,7 @@ Hooks.on("tidy5e-sheet.renderActorSheet", async (app, element) => {
     : temporarySoulBurnActions(actor);
   for (const item of itemsToIsolate) {
     for (const node of root.querySelectorAll(`[data-item-id="${item.id}"]`)) {
-      if (!node.closest(".soul-burn-tidy-tab")) {
+      if (!node.closest(".soul-burn-inventory-section")) {
         node.classList.add("soul-burn-managed-hidden");
       }
     }
@@ -1598,7 +1716,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.16"
+    version: "1.0.17"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -1640,10 +1758,10 @@ Hooks.once("ready", async () => {
   // Repairs characters that received the feature before this module version.
   for (const actor of game.actors.filter(a => a.type === "character")) {
     const hasSoulBurn = actor.items.some(item => item.getFlag("soul-burn", "action") === "activate");
+    await removeLegacyTidySoulBurnTabSelection(actor);
     if (hasSoulBurn) await initializeSoulBurnResource(actor);
     if (state(actor).active) {
       await ensureTemporarySoulBurnActions(actor);
-      await ensureTidySoulBurnTabSelected(actor);
     }
     else await removeTemporarySoulBurnActions(actor);
     if (hasSoulBurn) await syncSoulBurnFeature(actor, state(actor).active);
@@ -1706,6 +1824,18 @@ function scheduleSoulBurnDashboard(document) {
 }
 
 function interceptSoulBurnUse(document) {
+  const item = document?.documentName === "Item" ? document : document?.item;
+  const actor = item?.actor
+    ?? (item?.parent?.documentName === "Actor" ? item.parent : null);
+  if (
+    normalizedSoulBurnAction(item) === "surge"
+    && isTemporarySoulBurnAction(item)
+    && actor
+    && !classData(actor).some(entry => entry.remaining > 0)
+  ) {
+    ui.notifications.warn(`${actor.name} has no Hit Dice remaining.`);
+    return false;
+  }
   if (!scheduleSoulBurnDashboard(document)) return true;
   return false;
 }
@@ -1728,6 +1858,63 @@ Hooks.on("dnd5e.preDisplayCardV2", item => {
   return false;
 });
 
+const resolvingNativeSoulBurnItems = new Set();
+
+async function resolveNativeSoulBurnItemUse(document) {
+  const item = document?.documentName === "Item" ? document : document?.item;
+  const actor = item?.actor
+    ?? (item?.parent?.documentName === "Actor" ? item.parent : null);
+  const action = normalizedSoulBurnAction(item);
+  const resolutionKey = `${actor?.id ?? "none"}.${item?.id ?? action}`;
+  if (
+    !["surge", "fate"].includes(action)
+    || !isTemporarySoulBurnAction(item)
+    || !actor
+    || !state(actor).active
+    || resolvingNativeSoulBurnItems.has(resolutionKey)
+  ) return;
+
+  resolvingNativeSoulBurnItems.add(resolutionKey);
+  try {
+    if (action === "fate") {
+      await endBurn(actor, "Fate Shift");
+      return;
+    }
+
+    const available = classData(actor)
+      .filter(entry => entry.remaining > 0)
+      .sort((a, b) => b.faces - a.faces);
+    const spent = available[0];
+    if (!spent) {
+      ui.notifications.warn(`${actor.name} has no Hit Dice remaining.`);
+      return;
+    }
+    await actor.updateEmbeddedDocuments("Item", [{
+      _id: spent.item.id,
+      "system.hitDiceUsed": spent.used + 1
+    }]);
+
+    // Keep the next ordinary Item roll synchronized with the largest Hit Die
+    // the character still has available.
+    const refreshed = configureRegularSoulBurnItem(
+      item.toObject(),
+      "surge",
+      actor
+    );
+    refreshed._id = item.id;
+    await actor.updateEmbeddedDocuments(
+      "Item",
+      [refreshed],
+      { soulBurnInternal: true }
+    );
+  } finally {
+    resolvingNativeSoulBurnItems.delete(resolutionKey);
+  }
+}
+
+Hooks.on("dnd5e.useItem", item => resolveNativeSoulBurnItemUse(item));
+Hooks.on("dnd5e.postUseActivity", activity => resolveNativeSoulBurnItemUse(activity));
+
 Hooks.on("createItem", async (item, _options, userId) => {
   if (userId !== game.user.id) return;
   if (item.getFlag("soul-burn", "action") !== "activate") return;
@@ -1742,18 +1929,21 @@ Hooks.on("preUpdateItem", (item, _changes, options, userId) => {
   const user = game.users.get(userId);
   if (user?.isGM) return true;
   if (userId === game.user.id) {
-    ui.notifications.warn("Soul Burn is managed by the module and cannot be edited by players.");
+    ui.notifications.warn(`${item.name} is managed by Soul Burn and cannot be edited by players.`);
   }
   return false;
 });
 
 Hooks.on("preDeleteItem", (item, options, userId) => {
   if (options?.soulBurnInternal) return true;
-  if (!item.parent || item.getFlag(SB.scope, "action") !== "activate") return true;
+  if (!item.parent) return true;
+  const managedBySoulBurn = item.getFlag(SB.scope, "action") === "activate"
+    || isTemporarySoulBurnAction(item);
+  if (!managedBySoulBurn) return true;
   const user = game.users.get(userId);
   if (user?.isGM) return true;
   if (userId === game.user.id) {
-    ui.notifications.warn("Soul Burn is managed by the module and cannot be deleted by players.");
+    ui.notifications.warn(`${item.name} is managed by Soul Burn and cannot be deleted by players.`);
   }
   return false;
 });
@@ -1763,7 +1953,10 @@ Hooks.on("renderItemSheet", (app, html) => {
   if (
     game.user.isGM
     || !item?.parent
-    || item.getFlag(SB.scope, "action") !== "activate"
+    || (
+      item.getFlag(SB.scope, "action") !== "activate"
+      && !isTemporarySoulBurnAction(item)
+    )
   ) return;
 
   const sheetHtml = html?.jquery ? html : $(html);
@@ -1773,7 +1966,7 @@ Hooks.on("renderItemSheet", (app, html) => {
   if (!sheetHtml.find(".soul-burn-lock-notice").length) {
     sheetHtml.prepend(
       '<div class="soul-burn-lock-notice"><i class="fas fa-lock"></i> '
-      + "Soul Burn is module-managed. Only a GM can edit or delete it.</div>"
+      + `${esc(item.name)} is module-managed. Only a GM can edit or delete it.</div>`
     );
   }
 });

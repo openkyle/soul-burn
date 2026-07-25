@@ -1,0 +1,42 @@
+<section class="soul-burn-inventory-section" data-actor-id="{{actorId}}">
+  <details open>
+    <summary class="soul-burn-inventory-heading">
+      <span class="soul-burn-inventory-title">
+        <i class="fas fa-chevron-down soul-burn-inventory-chevron"></i>
+        <i class="fas fa-fire-flame-curved"></i>
+        Soul Burn ({{actions.length}})
+      </span>
+      <span class="soul-burn-inventory-rounds">{{roundsLabel}}</span>
+      <button type="button" data-sb-exit title="End Soul Burn early">
+        <i class="fas fa-stop"></i> Exit Soul Burn
+      </button>
+    </summary>
+
+    <div class="soul-burn-inventory-list">
+      {{#each actions}}
+        <div class="soul-burn-inventory-row item" data-item-id="{{id}}">
+          <img src="{{img}}" alt="{{name}}">
+          <button type="button" class="soul-burn-inventory-name" data-sb-item-card="{{id}}" title="Show {{name}} in chat">
+            {{name}}
+          </button>
+          <span class="soul-burn-inventory-uses">
+            {{#if hasUses}}{{uses}} / {{maxUses}}{{/if}}
+          </span>
+          <span class="soul-burn-inventory-activation">{{activation}}</span>
+          <span class="soul-burn-inventory-controls">
+            <button type="button" data-sb-item-use="{{id}}" title="Use {{name}}">
+              <i class="fas fa-dice-d20"></i>
+            </button>
+            {{#if @root.isGM}}
+              <button type="button" data-sb-item-edit="{{id}}" title="Open {{name}}">
+                <i class="fas fa-edit"></i>
+              </button>
+            {{/if}}
+          </span>
+        </div>
+      {{else}}
+        <p class="notification warning">Soul Burn actions are being prepared.</p>
+      {{/each}}
+    </div>
+  </details>
+</section>

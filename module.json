@@ -2,7 +2,7 @@
   "id": "soul-burn",
   "title": "Soul Burn",
   "description": "A complete player and GM workflow for the Soul Burn homebrew system in Foundry VTT dnd5e.",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "compatibility": {
     "minimum": "11",
     "verified": "13"
@@ -41,7 +41,7 @@
       {
         "id": "tidy5e-sheet",
         "type": "module",
-        "reason": "Adds the dedicated Soul Burn action tab to character sheets."
+        "reason": "Adds the active Soul Burn Item section above Weapons on the Inventory tab."
       },
       {
         "id": "sequencer",

@@ -103,115 +103,137 @@
   border-radius: 4px;
 }
 
-.soul-burn-action-panel {
-  padding: 0.75rem;
-}
-
-.soul-burn-action-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-  padding: 0.7rem 0.85rem;
-  color: #f8ead0;
-  background:
-    linear-gradient(100deg, rgba(53, 20, 5, 0.96), rgba(118, 48, 6, 0.88)),
-    url("../icons/soul-burn.png") center / cover;
-  border: 1px solid #ca7b1d;
-  border-radius: 5px;
-  box-shadow: inset 0 0 18px rgba(255, 181, 48, 0.22);
-}
-
-.soul-burn-action-heading h2,
-.soul-burn-action-heading p {
-  margin: 0;
-  border: 0;
-}
-
-.soul-burn-action-heading h2 {
-  color: #fff3ce;
-  font-size: 1.35rem;
-}
-
-.soul-burn-action-heading p {
-  margin-top: 0.25rem;
-  color: #ead8bc;
-  font-size: 0.85rem;
-}
-
-.soul-burn-rounds {
+.soul-burn-inventory-section {
   flex: 0 0 auto;
-  padding: 0.3rem 0.5rem;
-  color: #311704;
-  font-weight: 700;
-  background: #f2bd54;
-  border-radius: 3px;
-}
-
-.soul-burn-action-list {
   overflow: hidden;
-  border: 1px solid var(--color-border-light-primary);
+  margin-bottom: var(--t5e-size-2, 0.35rem);
   border-radius: 4px;
 }
 
-.soul-burn-action-row {
-  display: grid;
-  grid-template-columns: 54px minmax(160px, 1fr) 80px;
-  min-height: 54px;
-  align-items: stretch;
-  background: rgba(20, 20, 20, 0.82);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+.soul-burn-inventory-section details,
+.soul-burn-inventory-section summary {
+  margin: 0;
 }
 
-.soul-burn-action-row:last-child {
+.soul-burn-inventory-heading {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto auto;
+  min-height: 36px;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 0.35rem 0 0.6rem;
+  color: var(--t5e-primary-font-color, inherit);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  background:
+    linear-gradient(90deg, rgba(247, 184, 53, 0.27), rgba(106, 44, 5, 0.12)),
+    var(--t5e-faint-color, rgba(0, 0, 0, 0.08));
+  border: 1px solid rgba(181, 111, 15, 0.62);
+  border-radius: 4px;
+}
+
+.soul-burn-inventory-heading::-webkit-details-marker {
+  display: none;
+}
+
+.soul-burn-inventory-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.soul-burn-inventory-section details:not([open]) .soul-burn-inventory-chevron {
+  transform: rotate(-90deg);
+}
+
+.soul-burn-inventory-rounds {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.soul-burn-inventory-heading [data-sb-exit] {
+  width: auto;
+  min-width: 128px;
+  height: 28px;
+  margin: 0;
+  padding: 0 0.6rem;
+  color: #fff3d5;
+  font-weight: 700;
+  line-height: 26px;
+  background: linear-gradient(#8c2d10, #5e1907);
+  border: 1px solid #b96724;
+}
+
+.soul-burn-inventory-list {
+  border: 1px solid rgba(181, 111, 15, 0.4);
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+}
+
+.soul-burn-inventory-row {
+  display: grid;
+  grid-template-columns: 42px minmax(180px, 1fr) 80px 120px 74px;
+  min-height: 42px;
+  align-items: center;
+  background: rgba(236, 207, 127, 0.16);
+  border-bottom: 1px solid rgba(127, 97, 47, 0.25);
+}
+
+.soul-burn-inventory-row:last-child {
   border-bottom: 0;
 }
 
-.soul-burn-action-row img {
-  width: 54px;
-  height: 54px;
+.soul-burn-inventory-row > img {
+  width: 42px;
+  height: 42px;
   object-fit: cover;
   border: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  border-right: 1px solid rgba(127, 97, 47, 0.25);
 }
 
-.soul-burn-action-row button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  height: 54px;
+.soul-burn-inventory-name {
+  height: 42px;
   margin: 0;
-  padding: 0.35rem 0.75rem;
-  color: #f5f1e8;
+  padding: 0 0.55rem;
+  overflow: hidden;
+  color: inherit;
+  font-weight: 700;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: transparent;
   border: 0;
-  border-radius: 0;
   box-shadow: none;
 }
 
-.soul-burn-action-row button:hover,
-.soul-burn-action-row button:focus {
-  color: #ffd57b;
-  background: rgba(210, 105, 20, 0.25);
-  box-shadow: inset 0 0 10px rgba(255, 172, 50, 0.22);
+.soul-burn-inventory-name:hover {
+  color: var(--t5e-primary-accent-color, #d76b00);
+  box-shadow: none;
 }
 
-.soul-burn-action-row button strong {
-  font-size: 1rem;
+.soul-burn-inventory-uses,
+.soul-burn-inventory-activation {
+  text-align: center;
+  opacity: 0.85;
 }
 
-.soul-burn-action-row button small {
-  color: #c9c1b4;
-}
-
-.soul-burn-action-uses {
+.soul-burn-inventory-controls {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #e9dfcc;
-  font-weight: 700;
-  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  justify-content: flex-end;
+  gap: 2px;
+  padding-right: 0.3rem;
+}
+
+.soul-burn-inventory-controls button {
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  line-height: 28px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }

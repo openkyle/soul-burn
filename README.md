@@ -21,7 +21,8 @@ While Soul Burn is active, the character receives:
 - Double movement.
 - One free Soul Burn action each turn.
 - Access to AetherSurge, Channel Aether, and Fate Shift.
-- A dedicated Tidy5e **Soul Burn** character-sheet tab while transformed.
+- A collapsible **Soul Burn** Item section above Weapons on Tidy5e's Inventory
+  tab while transformed.
 
 ### Maximum and Burnout
 
@@ -48,8 +49,9 @@ result to either:
 - The attack roll; or
 - The damage roll as Radiant damage.
 
-The macro consumes the chosen class's Hit Die, rolls it, prompts for the
-application, and posts the result to chat.
+Using the temporary Item makes its ordinary dnd5e roll and expends the largest
+available class Hit Die. The player applies the result to either the attack or
+damage roll described by the feature.
 
 ### Channel Aether
 
@@ -58,26 +60,27 @@ attack against a visible enemy. On a hit,
 damage equals one Hit Die plus the character's total level. This does not
 consume a Hit Die.
 
-The macro prompts for the attack ability and rolls:
+The temporary Item uses the character's normal spellcasting attack and rolls:
 
 ```text
-Attack: 1d20 + chosen ability modifier + proficiency
+Attack: 1d20 + spellcasting ability modifier + proficiency
 Damage: largest class Hit Die + total character level
 ```
 
 The dnd5e Item tracks its own two charges. Soul Burn does not store a separate
 Channel-used flag and provides no reset control.
 
-### Temporary Soul Burn action tab
+### Temporary Soul Burn Item section
 
 When a character enters Soul Burn, the module copies AetherSurge, Channel
 Aether, and Fate Shift from **Soul Burn Features** onto that Actor as managed
-temporary Items. Tidy5e Sheet shows them together in a dedicated top-level
-**Soul Burn** tab with clickable controls and live Channel Aether charges.
+temporary Items. Tidy5e Sheet shows them as regular clickable Item rows in a
+collapsible **Soul Burn** section above Weapons on the Inventory tab, including
+live Channel Aether charges and a far-right **Exit Soul Burn** control.
 
-The managed copies are hidden from the normal Actions, Inventory, and Features
-areas. When Soul Burn ends—manually, through Fate Shift, or through combat
-expiry—the module deletes only those managed copies and the tab disappears.
+The managed copies are hidden from duplicate Actions and Features listings.
+When Soul Burn ends—manually, through Fate Shift, or through combat expiry—the
+module deletes only those managed copies and the Inventory section disappears.
 Existing permanent Items with the same names are never deleted.
 
 The owned **Soul Burn** feature is locked against player editing and deletion;
@@ -87,8 +90,9 @@ transformation ends.
 
 ### Fate Shift
 
-The player declares a rule bend, break, or modification for GM approval. The
-declaration is whispered to every active GM. Fate Shift then ends Soul Burn.
+Fate Shift is used as a normal dnd5e Item. Its description provides the
+rule-bending terms, and using it ends Soul Burn without opening a custom text
+box.
 
 ### Aetherglow and AGT
 
@@ -243,10 +247,13 @@ Foundry's audio browser and includes Preview and Restore Bundled Sound buttons.
 
 That screen also includes optional **High Stakes Mode**. When enabled, the
 first lifetime Soul Burn use rolls `1` chosen Hit Die, the second rolls `2`,
-the third rolls `3`, and so on. The summed result increases Soul Burn and sets
-the combat duration. Entry still requires an available Hit Die without
-expending it. The dashboard and confirmation show the multi-die formula and
-its exact Burnout odds.
+the third rolls `3`, and so on. The summed result increases Soul Burn, while
+only the first die determines the combat duration. Entry still requires an
+available Hit Die without expending it. The dashboard and confirmation show
+the multi-die formula and its exact Burnout odds.
+
+Ending Soul Burn early refunds 1 Soul Burn point for each wholly unused future
+combat round. The current, partially used round is not refunded.
 
 ## Interface
 
@@ -261,7 +268,7 @@ The primary dialog intentionally follows the original campaign interface:
 
 When the character is actively Soul Burning, the dialog retains Player Uses
 and More Info, then presents one full-width **End Soul Burn** button. The three
-combat actions remain together in the dedicated Soul Burn sheet tab.
+combat Items also remain together above Weapons on the Inventory tab.
 
 ## Token and Actor resolution
 
