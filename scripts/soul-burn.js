@@ -2615,8 +2615,8 @@ async function dashboard(actor, token) {
         <p><strong>An ancient power drawn from the Luminara within grants the power to bend time and space, but at the cost of lifeforce.</strong></p>
         <p><strong>${esc(cleanName(actor.name))}</strong></p>
         <p>Next Soul Burn Roll: ${primary ? `${nextDiceCount}d${primary.faces}` : "—"}${nextDiceCount > 1 ? " <strong>(High Stakes)</strong>" : ""}</p>
-        <p>Soul Burn: <strong>${current.burn} / ${max}</strong> | Uses: ${current.uses} | Burnout Odds: <strong>${primary ? burnoutChance(primary.faces, max - current.burn, nextDiceCount) : 0}%</strong></p>
         ${aetherglowProgressionSummary}
+        <p>Soul Burn: <strong>${current.burn} / ${max}</strong> | Uses: ${current.uses} | Burnout Odds: <strong>${primary ? burnoutChance(primary.faces, max - current.burn, nextDiceCount) : 0}%</strong></p>
         <div class="soul-burn-progress" role="progressbar" aria-label="Soul Burn accumulation" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${current.burn}" title="${current.burn} / ${max} Soul Burn">
           <span style="width:${burnProgress}%"></span>
         </div>
@@ -2942,7 +2942,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.38"
+    version: "1.0.39"
   });
 
   await cleanLegacyCompendiumIndex();

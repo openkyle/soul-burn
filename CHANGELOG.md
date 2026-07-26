@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.39
+
+- Moved the compact **AG Die Reduction** line directly beneath **Next Soul
+  Burn Roll** in the primary dashboard.
+
 ## 1.0.38
 
 - Made the Soul Burn dashboard an actor-scoped singleton. Repeated Foundry,
