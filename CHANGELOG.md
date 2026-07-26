@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.37
+
+- Added the GM option **Fate Shift Uses Confirmation Button**. Disabled keeps
+  the original countdown; enabled shows the descriptive prompt and waits for
+  the player to press **Fate Shift**.
+- Both Fate Shift modes now suppress the native Item use, charge consumption,
+  and chat card until their selected gate completes.
+- Fate Shift snapshots wholly unused future combat rounds before its native
+  Item workflow and supplies that value to automatic ending, ensuring those
+  remaining rounds reduce current Soul Burn.
+- Simplified the Soul Burn dashboard to **AG Die Reduction: X** and Player Uses
+  to **AGDR: X**.
+- Slightly widened Soul Burn Rules, Player Uses, and Confirm Soul Burn, and
+  removed the die-reduction progression paragraph from the confirmation dialog.
+- Added independent 0–100% Power-Up, Ending, and AetherGlow volume settings;
+  both preview and shared playback now use their configured levels.
+- Moved **Show AGT in Inventory Bar** and **Show Rounds Remaining in Inventory
+  Bar** from Mechanics to Visuals.
+
 ## 1.0.36
 
 - Replaced the grayscale effect's duplicated DOM token image with a live

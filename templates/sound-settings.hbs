@@ -22,6 +22,13 @@
         </div>
         <p class="hint">Played when Soul Burn activates.</p>
       </div>
+      <div class="form-group">
+        <label>Power-Up Volume</label>
+        <div class="form-fields">
+          <input type="number" name="powerUpVolume" value="{{powerUpVolume}}" min="0" max="100" step="1">
+          <span class="units">%</span>
+        </div>
+      </div>
 
       <div class="form-group">
         <label>Soul Burn Ending / Transform Back</label>
@@ -33,6 +40,13 @@
         </div>
         <p class="hint">Played when the duration expires or Soul Burn ends early. Bundled default: RagePowerDown.ogg.</p>
       </div>
+      <div class="form-group">
+        <label>Ending Volume</label>
+        <div class="form-fields">
+          <input type="number" name="endVolume" value="{{endVolume}}" min="0" max="100" step="1">
+          <span class="units">%</span>
+        </div>
+      </div>
 
       <div class="form-group">
         <label>AetherGlow Drinking</label>
@@ -43,6 +57,13 @@
           <button type="button" data-default-target="aetherglowSound" title="Restore bundled sound"><i class="fas fa-rotate-left"></i></button>
         </div>
         <p class="hint">Played when AetherGlow is consumed.</p>
+      </div>
+      <div class="form-group">
+        <label>AetherGlow Volume</label>
+        <div class="form-fields">
+          <input type="number" name="aetherglowVolume" value="{{aetherglowVolume}}" min="0" max="100" step="1">
+          <span class="units">%</span>
+        </div>
       </div>
     </div>
 
@@ -94,6 +115,30 @@
         </div>
         <p class="hint">Real time taken for contrast and color to return to normal. Default: 60 seconds.</p>
       </div>
+
+      <hr>
+
+      <div class="form-group">
+        <label>Show AGT in Inventory Bar</label>
+        <div class="form-fields">
+          <input type="checkbox" name="showAGTInInventoryBar" {{checked showAGTInInventoryBar}}>
+        </div>
+        <p class="hint">
+          Shows the active character's AGT and Player Uses information shortcut
+          in the Soul Burn Inventory heading.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label>Show Rounds Remaining in Inventory Bar</label>
+        <div class="form-fields">
+          <input type="checkbox" name="showRoundsInInventoryBar" {{checked showRoundsInInventoryBar}}>
+        </div>
+        <p class="hint">
+          Shows combat rounds remaining, or the manual duration, in the Soul
+          Burn Inventory heading.
+        </p>
+      </div>
     </div>
 
     <div class="tab" data-group="primary" data-tab="mechanics">
@@ -120,28 +165,6 @@
           minimum of one. It never restores, removes, or stops Lifetime Uses;
           Uses continue increasing normally on later activations. Disabled by
           default.
-        </p>
-      </div>
-
-      <div class="form-group">
-        <label>Show AGT in Inventory Bar</label>
-        <div class="form-fields">
-          <input type="checkbox" name="showAGTInInventoryBar" {{checked showAGTInInventoryBar}}>
-        </div>
-        <p class="hint">
-          Shows the active character's AGT and Player Uses information shortcut
-          in the Soul Burn Inventory heading.
-        </p>
-      </div>
-
-      <div class="form-group">
-        <label>Show Rounds Remaining in Inventory Bar</label>
-        <div class="form-fields">
-          <input type="checkbox" name="showRoundsInInventoryBar" {{checked showRoundsInInventoryBar}}>
-        </div>
-        <p class="hint">
-          Shows combat rounds remaining, or the manual duration, in the Soul
-          Burn Inventory heading.
         </p>
       </div>
 
@@ -188,14 +211,27 @@
       <hr>
 
       <div class="form-group">
+        <label>Fate Shift Uses Confirmation Button</label>
+        <div class="form-fields">
+          <input type="checkbox" name="fateShiftUsesButton" {{checked fateShiftUsesButton}}>
+        </div>
+        <p class="hint">
+          When enabled, the player launches Fate Shift with a confirmation
+          button. When disabled, the countdown remains in use. In either mode,
+          the native Item and chat card wait until the selected gate completes.
+        </p>
+      </div>
+
+      <div class="form-group">
         <label>Automatically End Soul Burn on Fate Shift</label>
         <div class="form-fields">
           <input type="checkbox" name="autoEndOnFateShift" {{checked autoEndOnFateShift}}>
         </div>
         <p class="hint">
-          When enabled, Soul Burn ends only after the Fate Shift countdown
-          reaches zero. Disabled by default; when disabled, Fate Shift leaves
-          the character in Soul Burn.
+          When enabled, Soul Burn ends after the selected Fate Shift gate and
+          native Item use complete. Any wholly unused future combat rounds
+          reduce current Soul Burn. Disabled by default; when disabled, Fate
+          Shift leaves the character in Soul Burn.
         </p>
       </div>
 
@@ -205,13 +241,13 @@
           <input type="number" name="fateShiftTimerSeconds" value="{{fateShiftTimerSeconds}}" min="1" max="600" step="1">
           <span class="units">seconds</span>
         </div>
-        <p class="hint">Real time given to the player to describe how they bend reality.</p>
+        <p class="hint">Used when confirmation-button mode is disabled.</p>
       </div>
 
       <div class="form-group stacked">
         <label>Fate Shift Message</label>
         <textarea name="fateShiftTimerMessage" rows="3">{{fateShiftTimerMessage}}</textarea>
-        <p class="hint">Use <code>{seconds}</code> where the live number of remaining seconds should appear.</p>
+        <p class="hint">Shown in either mode. Use <code>{seconds}</code> for the live remaining time in countdown mode. Button mode uses the default descriptive prompt when this placeholder is present.</p>
       </div>
     </div>
   </section>

@@ -124,14 +124,20 @@ so it also works if the GM is viewing another scene when the burn ends.
 
 ### Fate Shift
 
-Fate Shift begins with its real-time countdown and animated progress bar; it
-does not immediately create or roll its dnd5e chat card. Only when the timer
-reaches zero does the module release one native Item use, consume its charge,
-and place the resulting card in chat. The GM controls the countdown length and
-message under the Mechanics settings; `{seconds}` is replaced with the live
-remaining time. **Automatically End Soul Burn on Fate Shift** is disabled by
-default. When enabled, the normal ending animation and workflow begin after the
-countdown and delayed Item use complete. When disabled, Fate Shift leaves Soul
+The GM chooses between two Fate Shift gates under Mechanics:
+
+- The original real-time countdown and animated progress bar.
+- A descriptive prompt with a player-controlled **Fate Shift** button.
+
+Neither mode immediately creates or rolls the dnd5e chat card. The module
+releases exactly one native Item use, consumes its charge, and places the card
+in chat only after the timer reaches zero or the player presses the
+confirmation button. The GM controls the countdown length and shared message;
+`{seconds}` supplies the live remaining time in countdown mode.
+**Automatically End Soul Burn on Fate Shift** is disabled by default. When
+enabled, the normal ending workflow begins after the chosen gate and Item use
+complete. Wholly unused future combat rounds are captured and deducted from
+current Soul Burn during that ending. When disabled, Fate Shift leaves Soul
 Burn active.
 
 ### AetherGlow and AGT
@@ -173,7 +179,9 @@ Three audio effects are bundled with the module:
 
 The GM can change any sound under **Configure Settings → Module Settings →
 Soul Burn Settings**. The settings panel includes Browse, Preview, and Restore
-Bundled Sound controls. It also configures the synchronized battlefield
+Bundled Sound controls plus independent 0–100% volume levels for Power-Up,
+Ending, and AetherGlow playback. Preview uses the currently entered volume, and
+shared in-game playback uses the saved level. The panel also configures the synchronized battlefield
 ripple's contrast increase, desaturation, and real-time recovery duration. The
 Visuals tab also provides a **Delay** in seconds after the early ripple cue;
 its default is 1. The panel is organized into **Sounds**, **Visuals**, and
@@ -349,9 +357,11 @@ next dice = max(1, Lifetime Uses + 1 - AetherGlow reduction steps)
 
 The reduction counter is separate from Lifetime Uses. Consuming AetherGlow
 does not alter Uses; later Soul Burn activations still increment Uses normally.
+The main Soul Burn dialog displays this compactly as **AG Die Reduction: X**,
+and Player Uses abbreviates it as **AGDR: X**.
 
-The Mechanics tab also has independent **Show AGT in Inventory Bar** and
-**Show Rounds Remaining in Inventory Bar** options. Both default to enabled.
+The Visuals tab also has independent **Show AGT in Inventory Bar** and **Show
+Rounds Remaining in Inventory Bar** options. Both default to enabled.
 The compact `AGT: X` display includes an information shortcut that opens Soul
 Burn Player Uses.
 

@@ -20,13 +20,20 @@ const SB = {
   defaultEndSound: "modules/soul-burn/sounds/RagePowerDown.ogg",
   defaultFateShiftSeconds: 30,
   defaultFateShiftMessage:
-    "You have {seconds} seconds to describe how you are bending reality to your will. The GM will adjudicate.",
+    "Please describe how you are bending reality to your will. The GM will adjudicate.",
   sacredFlame:
     "modules/jb2a_patreon/Library/Cantrip/Sacred_Flame/SacredFlameTarget_01_Regular_Yellow_400x400.webm"
 };
 
 function soundPath(setting) {
   return game.settings.get("soul-burn", setting);
+}
+
+function soundVolume(setting) {
+  return Math.min(
+    1,
+    Math.max(0, Number(game.settings.get("soul-burn", setting)) / 100)
+  );
 }
 
 class SoulBurnSoundSettings extends FormApplication {
@@ -48,8 +55,11 @@ class SoulBurnSoundSettings extends FormApplication {
   getData() {
     return {
       powerUpSound: soundPath("powerUpSound"),
+      powerUpVolume: game.settings.get("soul-burn", "powerUpVolume"),
       aetherglowSound: soundPath("aetherglowSound"),
+      aetherglowVolume: game.settings.get("soul-burn", "aetherglowVolume"),
       endSound: soundPath("endSound"),
+      endVolume: game.settings.get("soul-burn", "endVolume"),
       rippleContrast: game.settings.get("soul-burn", "rippleContrast"),
       rippleDesaturation: game.settings.get("soul-burn", "rippleDesaturation"),
       rippleDelaySeconds: game.settings.get("soul-burn", "rippleDelaySeconds"),
@@ -78,6 +88,7 @@ class SoulBurnSoundSettings extends FormApplication {
         "showRoundsInInventoryBar"
       ),
       autoEndOnFateShift: game.settings.get("soul-burn", "autoEndOnFateShift"),
+      fateShiftUsesButton: game.settings.get("soul-burn", "fateShiftUsesButton"),
       fateShiftTimerSeconds: game.settings.get("soul-burn", "fateShiftTimerSeconds"),
       fateShiftTimerMessage: game.settings.get("soul-burn", "fateShiftTimerMessage"),
       defaultPowerUpSound: SB.defaultPowerUpSound,
@@ -102,7 +113,12 @@ class SoulBurnSoundSettings extends FormApplication {
       event.preventDefault();
       const target = event.currentTarget.dataset.previewTarget;
       const src = String(html.find(`[name="${target}"]`).val() ?? "").trim();
-      if (src) AudioHelper.play({ src, volume: 0.5, autoplay: true, loop: false }, false);
+      const volumeTarget = target.replace(/Sound$/, "Volume");
+      const volume = Math.min(
+        1,
+        Math.max(0, Number(html.find(`[name="${volumeTarget}"]`).val()) / 100)
+      );
+      if (src) AudioHelper.play({ src, volume, autoplay: true, loop: false }, false);
     });
     html.find("[data-default-target]").on("click", event => {
       event.preventDefault();
@@ -167,8 +183,23 @@ class SoulBurnSoundSettings extends FormApplication {
 
   async _updateObject(_event, formData) {
     await game.settings.set("soul-burn", "powerUpSound", String(formData.powerUpSound ?? "").trim());
+    await game.settings.set(
+      "soul-burn",
+      "powerUpVolume",
+      Math.min(100, Math.max(0, Number(formData.powerUpVolume) || 0))
+    );
     await game.settings.set("soul-burn", "aetherglowSound", String(formData.aetherglowSound ?? "").trim());
+    await game.settings.set(
+      "soul-burn",
+      "aetherglowVolume",
+      Math.min(100, Math.max(0, Number(formData.aetherglowVolume) || 0))
+    );
     await game.settings.set("soul-burn", "endSound", String(formData.endSound ?? "").trim());
+    await game.settings.set(
+      "soul-burn",
+      "endVolume",
+      Math.min(100, Math.max(0, Number(formData.endVolume) || 0))
+    );
     await game.settings.set(
       "soul-burn",
       "rippleContrast",
@@ -236,6 +267,11 @@ class SoulBurnSoundSettings extends FormApplication {
       "soul-burn",
       "autoEndOnFateShift",
       Boolean(formData.autoEndOnFateShift)
+    );
+    await game.settings.set(
+      "soul-burn",
+      "fateShiftUsesButton",
+      Boolean(formData.fateShiftUsesButton)
     );
     await game.settings.set(
       "soul-burn",
@@ -385,6 +421,14 @@ Hooks.once("init", () => {
     type: String,
     default: SB.defaultPowerUpSound
   });
+  game.settings.register("soul-burn", "powerUpVolume", {
+    name: "Soul Burn Power-Up Volume",
+    hint: "Shared playback volume as a percentage.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 50
+  });
   game.settings.register("soul-burn", "aetherglowSound", {
     name: "AetherGlow Drinking Sound",
     hint: "Audio played when a character consumes AetherGlow.",
@@ -393,6 +437,14 @@ Hooks.once("init", () => {
     type: String,
     default: SB.defaultAetherglowSound
   });
+  game.settings.register("soul-burn", "aetherglowVolume", {
+    name: "AetherGlow Drinking Volume",
+    hint: "Shared playback volume as a percentage.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 50
+  });
   game.settings.register("soul-burn", "endSound", {
     name: "Soul Burn End Sound",
     hint: "Audio played when Soul Burn ends and the token transforms back.",
@@ -400,6 +452,14 @@ Hooks.once("init", () => {
     config: false,
     type: String,
     default: SB.defaultEndSound
+  });
+  game.settings.register("soul-burn", "endVolume", {
+    name: "Soul Burn Ending Volume",
+    hint: "Shared playback volume as a percentage.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 50
   });
   game.settings.register("soul-burn", "rippleContrast", {
     name: "Battlefield Ripple Contrast Increase",
@@ -497,9 +557,17 @@ Hooks.once("init", () => {
     type: Boolean,
     default: true
   });
+  game.settings.register("soul-burn", "fateShiftUsesButton", {
+    name: "Fate Shift Uses Confirmation Button",
+    hint: "Replace the automatic countdown with a player-controlled Fate Shift confirmation button.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
   game.settings.register("soul-burn", "fateShiftTimerSeconds", {
     name: "Fate Shift Countdown",
-    hint: "Real-time seconds available to describe a Fate Shift.",
+    hint: "Real-time seconds available to describe a Fate Shift when button mode is disabled.",
     scope: "world",
     config: false,
     type: Number,
@@ -507,15 +575,15 @@ Hooks.once("init", () => {
   });
   game.settings.register("soul-burn", "autoEndOnFateShift", {
     name: "Automatically End Soul Burn on Fate Shift",
-    hint: "End the active Soul Burn after the Fate Shift countdown completes.",
+    hint: "End the active Soul Burn after the player confirms Fate Shift.",
     scope: "world",
     config: false,
     type: Boolean,
     default: false
   });
   game.settings.register("soul-burn", "fateShiftTimerMessage", {
-    name: "Fate Shift Countdown Message",
-    hint: "Message shown during the countdown. Use {seconds} for the remaining seconds.",
+    name: "Fate Shift Message",
+    hint: "Message shown during the countdown or above the confirmation button.",
     scope: "world",
     config: false,
     type: String,
@@ -553,7 +621,7 @@ const notifyError = error => {
   ui.notifications.error(`Soul Burn: ${error.message ?? error}`);
 };
 
-async function choose(title, content, buttons, defaultButton) {
+async function choose(title, content, buttons, defaultButton, options = {}) {
   return Dialog.wait({
     title,
     content,
@@ -569,7 +637,7 @@ async function choose(title, content, buttons, defaultButton) {
     ),
     default: defaultButton,
     close: () => null
-  });
+  }, options);
 }
 
 function actorTokens(actor) {
@@ -932,7 +1000,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
     data.system.actionType = "other";
     data.system.formula = "";
     data.system.description.value =
-      "<p>Declare an action that bends, breaks, or modifies the normal rules of the game. The GM must approve it. This cannot manifest infinite resources or simply wish an enemy dead.</p><p>The Fate Shift countdown resolves first. Soul Burn ends afterward only when the GM enables <strong>Automatically End Soul Burn on Fate Shift</strong>.</p>";
+      "<p>Declare an action that bends, breaks, or modifies the normal rules of the game. The GM must approve it. This cannot manifest infinite resources or simply wish an enemy dead.</p><p>The GM-configured Fate Shift timer or confirmation prompt resolves first. Soul Burn ends afterward only when the GM enables <strong>Automatically End Soul Burn on Fate Shift</strong>.</p>";
     data.system.uses = {
       ...(data.system.uses ?? {}),
       prompt: true
@@ -1650,7 +1718,12 @@ async function playAnimation(token, nextState) {
   const powerUpSound = soundPath("powerUpSound");
   if (powerUpSound) {
     try {
-      await AudioHelper.play({ src: powerUpSound, volume: 0.5, autoplay: true, loop: false }, true);
+      await AudioHelper.play({
+        src: powerUpSound,
+        volume: soundVolume("powerUpVolume"),
+        autoplay: true,
+        loop: false
+      }, true);
     } catch (error) {
       console.warn("Soul Burn | Power-up sound skipped.", error);
     }
@@ -1854,13 +1927,13 @@ async function activate(actor, token) {
   const confirmed = await choose(
     "Confirm Soul Burn",
     `<p><strong>${esc(actor.name)}</strong> has ${current.burn} / ${max} Soul Burn.</p>
-     <p>Roll: <strong>${activationFormula}</strong>${diceCount > 1 ? " (High Stakes Mode)" : ""}. Chance to exceed the maximum: <strong>${chance}%</strong>.</p>
-     ${progressionAdjustment}`,
+     <p>Roll: <strong>${activationFormula}</strong>${diceCount > 1 ? " (High Stakes Mode)" : ""}. Chance to exceed the maximum: <strong>${chance}%</strong>.</p>`,
     {
       burn: { icon: '<i class="fas fa-fire"></i>', label: `Roll ${activationFormula}`, value: true },
       cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: false }
     },
-    "cancel"
+    "cancel",
+    { width: 700 }
   );
   if (!confirmed) return;
 
@@ -1992,12 +2065,21 @@ function endConstitutionDC(current) {
   };
 }
 
-async function endBurn(actor, reason = "Soul Burn ends") {
+async function endBurn(
+  actor,
+  reason = "Soul Burn ends",
+  { unusedCombatRounds = null } = {}
+) {
   const current = state(actor);
   if (!current.active) return;
 
   const activeCombat = game.combat;
-  const unusedRounds = remainingUnusedCombatRounds(current, activeCombat);
+  const hasSuppliedUnusedRounds = unusedCombatRounds !== null
+    && unusedCombatRounds !== undefined
+    && Number.isFinite(Number(unusedCombatRounds));
+  const unusedRounds = hasSuppliedUnusedRounds
+    ? Math.max(0, Math.floor(Number(unusedCombatRounds)))
+    : remainingUnusedCombatRounds(current, activeCombat);
   const currentBurn = Math.max(0, Number(current.burn) || 0);
   const burnRefund = Math.min(currentBurn, unusedRounds);
   const nextBurn = Math.max(0, currentBurn - burnRefund);
@@ -2005,7 +2087,12 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   const endSound = soundPath("endSound");
   if (endSound) {
     try {
-      await AudioHelper.play({ src: endSound, volume: 0.5, autoplay: true, loop: false }, true);
+      await AudioHelper.play({
+        src: endSound,
+        volume: soundVolume("endVolume"),
+        autoplay: true,
+        loop: false
+      }, true);
     } catch (error) {
       console.warn("Soul Burn | Ending sound skipped.", error);
     }
@@ -2161,9 +2248,14 @@ async function fateShift(actor) {
     whisper: gmIds,
     content: `<h3>Fate Shift Approval</h3><p><strong>${esc(actor.name)}</strong> declares:</p><blockquote>${esc(declaration)}</blockquote>`
   });
-  await showFateShiftCountdown(actor);
+  const confirmed = await resolveFateShiftGate(actor);
+  if (!confirmed) return;
+  const unusedCombatRounds = remainingUnusedCombatRounds(
+    state(actor),
+    game.combat
+  );
   if (game.settings.get("soul-burn", "autoEndOnFateShift")) {
-    await endBurn(actor, "Fate Shift");
+    await endBurn(actor, "Fate Shift", { unusedCombatRounds });
   }
 }
 
@@ -2192,7 +2284,12 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
   const drinkingSound = soundPath("aetherglowSound");
   if (drinkingSound) {
     try {
-      await AudioHelper.play({ src: drinkingSound, volume: 0.5, autoplay: true, loop: false }, true);
+      await AudioHelper.play({
+        src: drinkingSound,
+        volume: soundVolume("aetherglowVolume"),
+        autoplay: true,
+        loop: false
+      }, true);
     } catch (error) {
       console.warn("Soul Burn | AetherGlow sound skipped.", error);
     }
@@ -2429,11 +2526,11 @@ async function showRules() {
       <h2>Channel Aether (1 Action or Reaction)</h2>
       <p>You may use Channel Aether a number of times equal to your proficiency bonus, regaining all uses on a short or long rest. Make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
       <h2>Fate Shift (1 Legendary Action)</h2>
-      <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. The countdown resolves before any ending animation. Soul Burn ends afterward only if the GM enables automatic ending for Fate Shift.</p>
+      <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. The GM-configured timer or confirmation prompt resolves before any ending animation. Soul Burn ends afterward only if the GM enables automatic ending for Fate Shift.</p>
     </div>`,
     buttons: { close: { icon: '<i class="fas fa-times"></i>', label: "Close" } },
     default: "close",
-    options: { width: 680 }
+    options: { width: 740 }
   }).render(true);
 }
 
@@ -2445,7 +2542,7 @@ async function showPlayerUses(activeActor) {
       const s = state(a);
       return `<div style="margin-bottom:12px">
         <p style="margin:0"><strong>${esc(cleanName(a.name))}:</strong> Uses ${s.uses} | <strong>AGT:</strong> 1d20-${s.tolerance}${showDieReduction
-          ? ` | <strong>AetherGlow Die Reduction:</strong> ${highStakesProgression(s).reduction}`
+          ? ` | <strong>AGDR:</strong> ${highStakesProgression(s).reduction}`
           : ""}</p>
         <p style="margin:2px 0 0"><em>${toleranceLine(s.tolerance)}</em></p>
       </div>`;
@@ -2459,7 +2556,7 @@ async function showPlayerUses(activeActor) {
       close: { icon: '<i class="fas fa-times"></i>', label: "Close" }
     },
     default: "close",
-    options: { width: 600 }
+    options: { width: 660 }
   }).render(true);
 }
 
@@ -2474,9 +2571,7 @@ async function dashboard(actor, token) {
   const highStakes = highStakesProgression(current);
   const nextDiceCount = highStakes.dice;
   const aetherglowProgressionSummary = aetherglowProgressionReductionEnabled()
-    ? `<p><strong>AetherGlow Die Reduction:</strong> ${highStakes.reduction} step${highStakes.reduction === 1 ? "" : "s"} |
-       Normal Uses progression: ${highStakes.normal} dice |
-       Adjusted next roll: <strong>${highStakes.dice} dice</strong></p>`
+    ? `<p><strong>AG Die Reduction:</strong> ${highStakes.reduction}</p>`
     : "";
   const diceText = dice.length
     ? dice.map(c => `${esc(c.item.name)}: ${c.remaining}/${c.levels}d${c.faces}`).join("<br>")
@@ -2832,7 +2927,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.36"
+    version: "1.0.37"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -3002,6 +3097,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 // Activity hook supports newer releases.
 const soulBurnUseDebounce = new Map();
 const resolvingNativeSoulBurnItems = new Set();
+const activeFateShiftPrompts = new Map();
 const activeFateShiftCountdowns = new Map();
 const pendingFateShiftItemUses = new Map();
 const releasedFateShiftItems = new Set();
@@ -3143,6 +3239,38 @@ Hooks.on("preCreateChatMessage", (_message, data) => {
   return false;
 });
 
+async function showFateShiftPrompt(actor) {
+  if (activeFateShiftPrompts.has(actor.id)) {
+    return activeFateShiftPrompts.get(actor.id);
+  }
+  const savedMessage = String(
+    game.settings.get("soul-burn", "fateShiftTimerMessage")
+      || SB.defaultFateShiftMessage
+  );
+  const configured = savedMessage.includes("{seconds}")
+    ? SB.defaultFateShiftMessage
+    : savedMessage.replace(/\s+/g, " ").trim();
+  const prompt = choose(
+    `Fate Shift — ${actor.name}`,
+    `<div class="soul-burn-fate-prompt"><p>${esc(configured)}</p></div>`,
+    {
+      fate: {
+        icon: '<i class="fas fa-wand-magic-sparkles"></i>',
+        label: "Fate Shift",
+        value: true
+      },
+      cancel: {
+        icon: '<i class="fas fa-times"></i>',
+        label: "Cancel",
+        value: false
+      }
+    },
+    "fate"
+  ).finally(() => activeFateShiftPrompts.delete(actor.id));
+  activeFateShiftPrompts.set(actor.id, prompt);
+  return prompt;
+}
+
 function fateShiftCountdownMessage(seconds) {
   const configured = String(
     game.settings.get("soul-burn", "fateShiftTimerMessage")
@@ -3178,8 +3306,8 @@ async function showFateShiftCountdown(actor) {
       finished = true;
       if (interval) clearInterval(interval);
       const remaining = Math.max(0, endsAt - Date.now());
-      if (remaining > 0) setTimeout(resolve, remaining);
-      else resolve();
+      if (remaining > 0) setTimeout(() => resolve(true), remaining);
+      else resolve(true);
     };
     const update = html => {
       const millisecondsLeft = Math.max(0, endsAt - Date.now());
@@ -3221,6 +3349,12 @@ async function showFateShiftCountdown(actor) {
   return countdown;
 }
 
+async function resolveFateShiftGate(actor) {
+  return game.settings.get("soul-burn", "fateShiftUsesButton")
+    ? showFateShiftPrompt(actor)
+    : showFateShiftCountdown(actor);
+}
+
 async function scheduleFateShiftItemUse(item) {
   const actor = item?.actor;
   if (!actor || !state(actor).active) return;
@@ -3230,12 +3364,21 @@ async function scheduleFateShiftItemUse(item) {
   }
 
   const pending = (async () => {
-    await showFateShiftCountdown(actor);
+    const confirmed = await resolveFateShiftGate(actor);
+    if (!confirmed) return;
     if (!state(actor).active || !actor.items.get(item.id)) return;
+    // Capture the unused-round reduction before native Item use. This keeps
+    // Fate Shift's early-exit refund stable even if the Item workflow or a
+    // system integration changes the current combat reference.
+    const unusedCombatRounds = remainingUnusedCombatRounds(
+      state(actor),
+      game.combat
+    );
 
-    // Release exactly one native use after the countdown. All pre-use,
+    // Release exactly one native use after confirmation. All pre-use,
     // display-card, and direct-message guards recognize this key, allowing
-    // dnd5e to consume the Item use and create its card only at zero.
+    // dnd5e to consume the Item use and create its card only after the player
+    // presses Fate Shift.
     releasedFateShiftItems.add(key);
     try {
       await item.use();
@@ -3247,7 +3390,7 @@ async function scheduleFateShiftItemUse(item) {
       state(actor).active
       && game.settings.get("soul-burn", "autoEndOnFateShift")
     ) {
-      await endBurn(actor, "Fate Shift");
+      await endBurn(actor, "Fate Shift", { unusedCombatRounds });
     }
   })()
     .catch(notifyError)
@@ -3279,7 +3422,7 @@ async function resolveNativeSoulBurnItemUse(document) {
     }
     if (action === "fate") {
       // Fate Shift is delayed before native use; scheduleFateShiftItemUse owns
-      // its countdown, final Item card, and optional end-of-burn workflow.
+      // its confirmation, final Item card, and optional end-of-burn workflow.
       return;
     }
 
