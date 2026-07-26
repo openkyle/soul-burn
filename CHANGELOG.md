@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.42
+
+- Narrowed the permanent Soul Burn feature's capture-phase launcher to its
+  item name, image, and explicit use button.
+- Tidy/Foundry bookmark, edit, duplicate, delete, configuration, ownership,
+  and other row controls now retain their native click behavior instead of
+  opening the Soul Burn dashboard.
+- The narrow launcher still runs before Tidy's deprecated chat-card path, so
+  using Soul Burn continues to open the dashboard first.
+
 ## 1.0.41
 
 - Restored the intended visual separation: the ripple grades the battlefield

@@ -2924,14 +2924,21 @@ function installSoulBurnSheetInterception(app, element) {
     const item = actor.items.get(row.dataset.itemId);
     if (soulBurnItemFlag(item, "action") !== "activate") return;
 
-    // Preserve explicit GM maintenance controls while routing every ordinary
-    // player-facing launch control to the Soul Burn dashboard.
-    if (
-      game.user.isGM
-      && event.target.closest(
-        ".item-edit, .item-delete, [data-action*='edit'], [data-action*='delete']"
-      )
-    ) return;
+    // Tidy's row includes bookmark, edit, duplicate, delete, configuration,
+    // ownership, and other native controls. Only the name/image and explicit
+    // Item use button launch Soul Burn; every other control must remain native.
+    const useButton = event.target.closest(
+      ".item-use-button, [data-action='use'], [data-action='item-use']"
+    );
+    const nativeControl = event.target.closest(
+      ".tidy5e-item-controls, .item-controls, .item-control, button, a"
+    );
+    if (nativeControl && !useButton) return;
+
+    const launchTarget = useButton ?? event.target.closest(
+      "[data-tidy-item-name], .item-name, .item-image, .item-img"
+    );
+    if (!launchTarget || !row.contains(launchTarget)) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -2965,7 +2972,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.41"
+    version: "1.0.42"
   });
 
   await cleanLegacyCompendiumIndex();
