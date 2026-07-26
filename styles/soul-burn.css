@@ -93,6 +93,14 @@
   opacity: 0.52;
 }
 
+.soul-burn-module-available {
+  color: #2f7d32;
+}
+
+.soul-burn-module-missing {
+  color: #9b2c2c;
+}
+
 .soul-burn-sound-form .form-fields button {
   flex: 0 0 36px;
   height: 32px;

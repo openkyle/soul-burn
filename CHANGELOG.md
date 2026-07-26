@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.43
+
+- Added **Use TokenMagic FX** to the Visuals settings tab. It controls the
+  persistent token fire filter and reports whether TokenMagic FX is active.
+- Added **Use Sequencer/JB2A Transformation** to the Visuals settings tab. It
+  controls the full-color Sacred Flame transformation and reports the status
+  of both required animation modules.
+- Both integrations remain enabled by default to preserve existing worlds.
+  Disabling one skips only that optional visual path; Soul Burn mechanics,
+  token transformation, sounds, and the battlefield ripple still run.
+- Added support for the JB2A Patreon and free D&D5e module paths.
+- Reduced the Soul Burn roll confirmation width and corrected the Rules
+  dialog's Foundry options placement so it opens substantially wider with less
+  vertical wrapping.
+
 ## 1.0.42
 
 - Narrowed the permanent Soul Burn feature's capture-phase launcher to its

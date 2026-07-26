@@ -68,6 +68,47 @@
     </div>
 
     <div class="tab" data-group="primary" data-tab="visuals">
+      <h2>Visual Integrations</h2>
+
+      <div class="form-group">
+        <label>Use TokenMagic FX</label>
+        <div class="form-fields">
+          <input type="checkbox" name="useTokenMagicFX" {{checked useTokenMagicFX}}>
+        </div>
+        <p class="hint">
+          Applies the persistent animated fire filter to the transformed token.
+          Requires the <strong>TokenMagic FX</strong> module.
+          {{#if tokenMagicAvailable}}
+            <strong class="soul-burn-module-available">Available and active.</strong>
+          {{else}}
+            <strong class="soul-burn-module-missing">Not currently available.</strong>
+          {{/if}}
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label>Use Sequencer/JB2A Transformation</label>
+        <div class="form-fields">
+          <input type="checkbox" name="useAnimatedEffects" {{checked useAnimatedEffects}}>
+        </div>
+        <p class="hint">
+          Plays the full-color Sacred Flame transformation before the
+          battlefield ripple. Requires both <strong>Sequencer</strong> and a
+          <strong>JB2A</strong> animation module.
+          {{#if animatedEffectsAvailable}}
+            <strong class="soul-burn-module-available">Both are available and active.</strong>
+          {{else}}
+            <strong class="soul-burn-module-missing">
+              Missing:
+              {{#unless sequencerAvailable}} Sequencer{{/unless}}
+              {{#unless jb2aAvailable}} JB2A{{/unless}}.
+            </strong>
+          {{/if}}
+        </p>
+      </div>
+
+      <hr>
+
       <h2>Battlefield Ripple</h2>
       <p class="notes">
         The base grayscale cue occurs three seconds earlier than the original

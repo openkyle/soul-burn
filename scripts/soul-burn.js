@@ -21,8 +21,10 @@ const SB = {
   defaultFateShiftSeconds: 30,
   defaultFateShiftMessage:
     "Please describe how you are bending reality to your will. The GM will adjudicate.",
-  sacredFlame:
-    "modules/jb2a_patreon/Library/Cantrip/Sacred_Flame/SacredFlameTarget_01_Regular_Yellow_400x400.webm"
+  sacredFlamePatreon:
+    "modules/jb2a_patreon/Library/Cantrip/Sacred_Flame/SacredFlameTarget_01_Regular_Yellow_400x400.webm",
+  sacredFlameFree:
+    "modules/JB2A_DnD5e/Library/Cantrip/Sacred_Flame/SacredFlameTarget_01_Regular_Yellow_400x400.webm"
 };
 
 function soundPath(setting) {
@@ -34,6 +36,24 @@ function soundVolume(setting) {
     1,
     Math.max(0, Number(game.settings.get("soul-burn", setting)) / 100)
   );
+}
+
+function moduleActive(...ids) {
+  return ids.some(id => game.modules.get(id)?.active);
+}
+
+function animatedEffectsAvailable() {
+  return Boolean(
+    moduleActive("sequencer")
+    && moduleActive("jb2a_patreon", "JB2A_DnD5e")
+    && globalThis.Sequence
+  );
+}
+
+function sacredFlamePath() {
+  return moduleActive("jb2a_patreon")
+    ? SB.sacredFlamePatreon
+    : SB.sacredFlameFree;
 }
 
 class SoulBurnSoundSettings extends FormApplication {
@@ -64,6 +84,12 @@ class SoulBurnSoundSettings extends FormApplication {
       rippleDesaturation: game.settings.get("soul-burn", "rippleDesaturation"),
       rippleDelaySeconds: game.settings.get("soul-burn", "rippleDelaySeconds"),
       rippleRecoverySeconds: game.settings.get("soul-burn", "rippleRecoverySeconds"),
+      useTokenMagicFX: game.settings.get("soul-burn", "useTokenMagicFX"),
+      tokenMagicAvailable: moduleActive("tokenmagic") && Boolean(globalThis.TokenMagic),
+      useAnimatedEffects: game.settings.get("soul-burn", "useAnimatedEffects"),
+      sequencerAvailable: moduleActive("sequencer") && Boolean(globalThis.Sequence),
+      jb2aAvailable: moduleActive("jb2a_patreon", "JB2A_DnD5e"),
+      animatedEffectsAvailable: animatedEffectsAvailable(),
       highStakesMode: game.settings.get("soul-burn", "highStakesMode"),
       aetherglowReducesSoulBurnDie: game.settings.get(
         "soul-burn",
@@ -219,6 +245,16 @@ class SoulBurnSoundSettings extends FormApplication {
       "soul-burn",
       "rippleRecoverySeconds",
       Math.min(600, Math.max(1, Number(formData.rippleRecoverySeconds) || 60))
+    );
+    await game.settings.set(
+      "soul-burn",
+      "useTokenMagicFX",
+      Boolean(formData.useTokenMagicFX)
+    );
+    await game.settings.set(
+      "soul-burn",
+      "useAnimatedEffects",
+      Boolean(formData.useAnimatedEffects)
     );
     const escalatingEndConSaveDC = Boolean(formData.escalatingEndConSaveDC);
     const applyExhaustion = Boolean(formData.applyExhaustionOnFailedConCheck)
@@ -492,6 +528,22 @@ Hooks.once("init", () => {
     config: false,
     type: Number,
     default: 1
+  });
+  game.settings.register("soul-burn", "useTokenMagicFX", {
+    name: "Use TokenMagic FX",
+    hint: "Apply the persistent Soul Burn fire filter when TokenMagic FX is active.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true
+  });
+  game.settings.register("soul-burn", "useAnimatedEffects", {
+    name: "Use Sequencer/JB2A Transformation",
+    hint: "Play the Soul Burn transformation animation when Sequencer and JB2A are active.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true
   });
   game.settings.register("soul-burn", "requireEndConSave", {
     name: "Require Constitution Save When Soul Burn Ends",
@@ -1752,12 +1804,13 @@ async function playAnimation(token, nextState) {
     }
   }
 
-  if (globalThis.Sequence) {
+  const useAnimatedEffects = game.settings.get("soul-burn", "useAnimatedEffects");
+  if (useAnimatedEffects && animatedEffectsAvailable()) {
     try {
       await wait(700);
       const sequence = new Sequence()
         .effect()
-        .file(SB.sacredFlame)
+        .file(sacredFlamePath())
         .atLocation(token)
         .scale(2)
         .duration(POWER_UP_ANIMATION_MS);
@@ -1774,8 +1827,10 @@ async function playAnimation(token, nextState) {
     } catch (error) {
       console.warn("Soul Burn | Sequencer/JB2A animation skipped.", error);
     }
-  } else {
-    ui.notifications.warn("Sequencer is unavailable; Soul Burn mechanics still activated.");
+  } else if (useAnimatedEffects) {
+    ui.notifications.warn(
+      "Soul Burn animated transformation requires active Sequencer and JB2A modules; mechanics still activated."
+    );
   }
 
   const original = tokenImagePath(token.document.texture)
@@ -1795,7 +1850,8 @@ async function playAnimation(token, nextState) {
 
   // Attach TokenMagic to the final transformed mesh. Applying it before the
   // texture swap can temporarily detach the filter until TokenMagic rebuilds.
-  if (globalThis.TokenMagic) {
+  const useTokenMagicFX = game.settings.get("soul-burn", "useTokenMagicFX");
+  if (useTokenMagicFX && moduleActive("tokenmagic") && globalThis.TokenMagic) {
     const params = [{
       filterType: "fire",
       filterId: "soulBurnFire",
@@ -1956,7 +2012,7 @@ async function activate(actor, token) {
       cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel", value: false }
     },
     "cancel",
-    { width: 700 }
+    { width: 520 }
   );
   if (!confirmed) return;
 
@@ -2552,9 +2608,8 @@ async function showRules() {
       <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. The GM-configured timer or confirmation prompt resolves before any ending animation. Soul Burn ends afterward only if the GM enables automatic ending for Fate Shift.</p>
     </div>`,
     buttons: { close: { icon: '<i class="fas fa-times"></i>', label: "Close" } },
-    default: "close",
-    options: { width: 740 }
-  }).render(true);
+    default: "close"
+  }, { width: 640 }).render(true);
 }
 
 async function showPlayerUses(activeActor) {
@@ -2972,7 +3027,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.42"
+    version: "1.0.43"
   });
 
   await cleanLegacyCompendiumIndex();

@@ -448,6 +448,19 @@ image, paint a colored aura, or add its own glow. This avoids the black frames,
 rectangular duplicates, and continuous character-sheet compositor invalidation
 caused by earlier color-preservation experiments.
 
+The Visuals settings tab includes two independent, enabled-by-default module
+integrations:
+
+- **Use TokenMagic FX** applies the persistent animated token fire filter and
+  requires TokenMagic FX.
+- **Use Sequencer/JB2A Transformation** plays the full-color Sacred Flame
+  transformation and requires Sequencer plus either JB2A Patreon or the free
+  JB2A D&D5e module.
+
+If an enabled dependency is unavailable, Soul Burn reports the missing visual
+integration and continues its mechanics, token transformation, sound, and
+battlefield ripple.
+
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,
 Sequencer, JB2A, TokenMagic, or a transformed image is unavailable, the
