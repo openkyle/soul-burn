@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.36
+
+- Replaced the grayscale effect's duplicated DOM token image with a live
+  token-alpha cutout in the ripple layer.
+- Removed the rectangular image border and synthetic glow that surrounded the
+  transformed token while the battlefield grade was active.
+- The real canvas token and its TokenMagic animation now show directly through
+  the grayscale layer throughout ripple expansion and recovery.
+- Fate Shift now suppresses its native Item use and chat card until the
+  animated countdown reaches zero. At that point it performs one native use,
+  consumes the charge, posts the card, and then applies the optional automatic
+  end-of-burn workflow.
+
 ## 1.0.35
 
 - Reduced the Soul Burn Inventory attack-name text to `0.72rem` without

@@ -1461,44 +1461,14 @@ function battlefieldRippleOrigin(request, view) {
   );
 }
 
-function tokenPreserverMedia(src) {
-  const cleanSrc = String(src ?? "").split(/[?#]/)[0].toLowerCase();
-  const isVideo = [".webm", ".mp4", ".m4v", ".ogv"].some(extension =>
-    cleanSrc.endsWith(extension)
-  );
-  const media = document.createElement(isVideo ? "video" : "img");
-  media.className = "soul-burn-token-color-preserver";
-  media.dataset.src = String(src ?? "");
-  if (isVideo) {
-    media.autoplay = true;
-    media.loop = true;
-    media.muted = true;
-    media.playsInline = true;
-  }
-  media.src = String(src ?? "");
-  return media;
-}
-
-function updateTokenColorPreserver(effect) {
+function updateTokenColorMask(effect) {
   if (activeBattlefieldRipple !== effect) return;
   const token = battlefieldRippleToken(effect.request);
   const currentSrc = tokenImagePath(token?.document?.texture)
     || tokenImagePath(token?.document?.img);
   if (!token || !currentSrc || !token.visible) {
-    if (effect.media) effect.media.hidden = true;
-    effect.frame = requestAnimationFrame(() => updateTokenColorPreserver(effect));
+    effect.frame = requestAnimationFrame(() => updateTokenColorMask(effect));
     return;
-  }
-
-  if (!effect.media || effect.media.dataset.src !== currentSrc) {
-    const replacement = tokenPreserverMedia(currentSrc);
-    replacement.classList.toggle(
-      "soul-burn-token-fire-preserver",
-      Boolean(effect.request.preserveFire && globalThis.TokenMagic)
-    );
-    effect.media?.replaceWith(replacement);
-    if (!effect.media) effect.overlay.append(replacement);
-    effect.media = replacement;
   }
 
   const topLeft = battlefieldScreenPoint(
@@ -1513,18 +1483,38 @@ function updateTokenColorPreserver(effect) {
     effect.view
   );
   if (topLeft && bottomRight) {
-    const texture = token.document.texture ?? {};
-    Object.assign(effect.media.style, {
-      left: `${Math.min(topLeft.x, bottomRight.x)}px`,
-      top: `${Math.min(topLeft.y, bottomRight.y)}px`,
-      width: `${Math.abs(bottomRight.x - topLeft.x)}px`,
-      height: `${Math.abs(bottomRight.y - topLeft.y)}px`,
-      opacity: String(Number(token.alpha ?? token.document.alpha ?? 1)),
-      transform: `rotate(${Number(token.document.rotation ?? 0)}deg) scale(${Number(texture.scaleX ?? 1)}, ${Number(texture.scaleY ?? 1)})`
+    const left = Math.min(topLeft.x, bottomRight.x);
+    const top = Math.min(topLeft.y, bottomRight.y);
+    const width = Math.abs(bottomRight.x - topLeft.x);
+    const height = Math.abs(bottomRight.y - topLeft.y);
+    // The wave itself scales outward. Compensate for that transform so the
+    // alpha cutout stays at the token's full on-screen size from the first
+    // ripple frame instead of growing from a tiny square with the wave.
+    const circleRect = effect.circle.getBoundingClientRect();
+    const overlayRect = effect.overlay.getBoundingClientRect();
+    const scaleX = Math.max(0.001, circleRect.width / effect.diameter);
+    const scaleY = Math.max(0.001, circleRect.height / effect.diameter);
+    const renderedLeft = circleRect.left - overlayRect.left;
+    const renderedTop = circleRect.top - overlayRect.top;
+    const relativeLeft = (left - renderedLeft) / scaleX;
+    const relativeTop = (top - renderedTop) / scaleY;
+    const maskImage = `linear-gradient(#fff 0 0), url(${JSON.stringify(currentSrc)})`;
+    const maskSize = `100% 100%, ${width / scaleX}px ${height / scaleY}px`;
+    const maskPosition = `0 0, ${relativeLeft}px ${relativeTop}px`;
+    Object.assign(effect.circle.style, {
+      maskImage,
+      webkitMaskImage: maskImage,
+      maskSize,
+      webkitMaskSize: maskSize,
+      maskPosition,
+      webkitMaskPosition: maskPosition,
+      maskRepeat: "no-repeat",
+      webkitMaskRepeat: "no-repeat",
+      maskComposite: "exclude",
+      webkitMaskComposite: "xor"
     });
-    effect.media.hidden = false;
   }
-  effect.frame = requestAnimationFrame(() => updateTokenColorPreserver(effect));
+  effect.frame = requestAnimationFrame(() => updateTokenColorMask(effect));
 }
 
 async function playBattlefieldRipple(request = {}) {
@@ -1588,14 +1578,15 @@ async function playBattlefieldRipple(request = {}) {
   const effect = {
     animation,
     overlay,
+    circle,
+    diameter,
     view,
     request,
-    media: null,
     frame: null,
     timer: null
   };
   activeBattlefieldRipple = effect;
-  updateTokenColorPreserver(effect);
+  updateTokenColorMask(effect);
 
   try {
     await animation.finished;
@@ -1609,9 +1600,9 @@ async function playBattlefieldRipple(request = {}) {
   }
   if (activeBattlefieldRipple !== effect) return;
 
-  // Keep the live backdrop-filter in place and fade that layer away. The
-  // activating token is repainted above it from its own transparent media, so
-  // no circular color aura or GPU canvas readback is required.
+  // Keep the live backdrop-filter in place and fade that layer away. Its
+  // token-alpha cutout exposes the real canvas token and TokenMagic effect,
+  // avoiding a rectangular DOM-media duplicate or a circular color aura.
   effect.animation = circle.animate(
     [{ opacity: 1 }, { opacity: 0 }],
     {
@@ -1640,8 +1631,7 @@ function broadcastBattlefieldRipple(token) {
     tokenId: token.document?.id,
     sceneId: canvas.scene.id,
     x: Number(center.x),
-    y: Number(center.y),
-    preserveFire: Boolean(globalThis.TokenMagic)
+    y: Number(center.y)
   };
   void playBattlefieldRipple(request);
   game.socket.emit("module.soul-burn", request);
@@ -2842,7 +2832,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.35"
+    version: "1.0.36"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -3011,6 +3001,14 @@ Hooks.on("renderChatMessage", (message, html) => {
 // dnd5e's ordinary Item chat card. The Item hook supports dnd5e 2.4.1 and the
 // Activity hook supports newer releases.
 const soulBurnUseDebounce = new Map();
+const resolvingNativeSoulBurnItems = new Set();
+const activeFateShiftCountdowns = new Map();
+const pendingFateShiftItemUses = new Map();
+const releasedFateShiftItems = new Set();
+
+function soulBurnItemUseKey(item) {
+  return String(item?.uuid ?? `${item?.actor?.id ?? "none"}.${item?.id ?? "none"}`);
+}
 
 function scheduleSoulBurnDashboard(document) {
   const item = document?.documentName === "Item" ? document : document?.item;
@@ -3031,8 +3029,20 @@ function interceptSoulBurnUse(document) {
   const item = document?.documentName === "Item" ? document : document?.item;
   const actor = item?.actor
     ?? (item?.parent?.documentName === "Actor" ? item.parent : null);
+  const action = normalizedSoulBurnAction(item);
   if (
-    normalizedSoulBurnAction(item) === "surge"
+    action === "fate"
+    && isTemporarySoulBurnAction(item)
+    && actor
+    && state(actor).active
+  ) {
+    const key = soulBurnItemUseKey(item);
+    if (releasedFateShiftItems.has(key)) return true;
+    void scheduleFateShiftItemUse(item);
+    return false;
+  }
+  if (
+    action === "surge"
     && isTemporarySoulBurnAction(item)
     && actor
     && !classData(actor).some(entry => entry.remaining > 0)
@@ -3076,12 +3086,31 @@ Hooks.on("dnd5e.preDisplayCard", (item, chatData, options) => {
       itemId: item.id
     };
   }
+  if (
+    itemAction === "fate"
+    && isTemporarySoulBurnAction(item)
+    && state(item.actor).active
+    && !releasedFateShiftItems.has(soulBurnItemUseKey(item))
+  ) {
+    options.createMessage = false;
+    void scheduleFateShiftItemUse(item);
+    return;
+  }
   if (!scheduleSoulBurnDashboard(item)) return;
   options.createMessage = false;
 });
 
 // dnd5e 4+ replaced the legacy hook with a cancellable V2 hook.
 Hooks.on("dnd5e.preDisplayCardV2", item => {
+  if (
+    normalizedSoulBurnAction(item) === "fate"
+    && isTemporarySoulBurnAction(item)
+    && state(item.actor).active
+    && !releasedFateShiftItems.has(soulBurnItemUseKey(item))
+  ) {
+    void scheduleFateShiftItemUse(item);
+    return false;
+  }
   if (!scheduleSoulBurnDashboard(item)) return true;
   return false;
 });
@@ -3099,14 +3128,20 @@ Hooks.on("preCreateChatMessage", (_message, data) => {
   const actor = (data.speaker?.actor ? game.actors.get(data.speaker.actor) : null)
     ?? (data.speaker?.token ? canvas.tokens?.get(data.speaker.token)?.actor : null);
   const item = actor?.items.get(itemId);
+  if (
+    normalizedSoulBurnAction(item) === "fate"
+    && isTemporarySoulBurnAction(item)
+    && state(actor).active
+    && !releasedFateShiftItems.has(soulBurnItemUseKey(item))
+  ) {
+    void scheduleFateShiftItemUse(item);
+    return false;
+  }
   if (soulBurnItemFlag(item, "action") !== "activate") return true;
 
   scheduleSoulBurnDashboard(item);
   return false;
 });
-
-const resolvingNativeSoulBurnItems = new Set();
-const activeFateShiftCountdowns = new Map();
 
 function fateShiftCountdownMessage(seconds) {
   const configured = String(
@@ -3186,6 +3221,42 @@ async function showFateShiftCountdown(actor) {
   return countdown;
 }
 
+async function scheduleFateShiftItemUse(item) {
+  const actor = item?.actor;
+  if (!actor || !state(actor).active) return;
+  const key = soulBurnItemUseKey(item);
+  if (pendingFateShiftItemUses.has(key)) {
+    return pendingFateShiftItemUses.get(key);
+  }
+
+  const pending = (async () => {
+    await showFateShiftCountdown(actor);
+    if (!state(actor).active || !actor.items.get(item.id)) return;
+
+    // Release exactly one native use after the countdown. All pre-use,
+    // display-card, and direct-message guards recognize this key, allowing
+    // dnd5e to consume the Item use and create its card only at zero.
+    releasedFateShiftItems.add(key);
+    try {
+      await item.use();
+    } finally {
+      releasedFateShiftItems.delete(key);
+    }
+
+    if (
+      state(actor).active
+      && game.settings.get("soul-burn", "autoEndOnFateShift")
+    ) {
+      await endBurn(actor, "Fate Shift");
+    }
+  })()
+    .catch(notifyError)
+    .finally(() => pendingFateShiftItemUses.delete(key));
+
+  pendingFateShiftItemUses.set(key, pending);
+  return pending;
+}
+
 async function resolveNativeSoulBurnItemUse(document) {
   const item = document?.documentName === "Item" ? document : document?.item;
   const actor = item?.actor
@@ -3207,10 +3278,8 @@ async function resolveNativeSoulBurnItemUse(document) {
       return;
     }
     if (action === "fate") {
-      await showFateShiftCountdown(actor);
-      if (game.settings.get("soul-burn", "autoEndOnFateShift")) {
-        await endBurn(actor, "Fate Shift");
-      }
+      // Fate Shift is delayed before native use; scheduleFateShiftItemUse owns
+      // its countdown, final Item card, and optional end-of-burn workflow.
       return;
     }
 

@@ -124,13 +124,15 @@ so it also works if the GM is viewing another scene when the burn ends.
 
 ### Fate Shift
 
-Fate Shift is used as a normal dnd5e Item. Its description provides the
-rule-bending terms. Using it opens a real-time countdown and progress bar. The
-GM controls the countdown length and message under the Mechanics settings;
-`{seconds}` is replaced with the live remaining time. **Automatically End Soul
-Burn on Fate Shift** is disabled by default. When enabled, the normal ending
-animation and workflow begin only after the full countdown completes. When
-disabled, Fate Shift leaves Soul Burn active.
+Fate Shift begins with its real-time countdown and animated progress bar; it
+does not immediately create or roll its dnd5e chat card. Only when the timer
+reaches zero does the module release one native Item use, consume its charge,
+and place the resulting card in chat. The GM controls the countdown length and
+message under the Mechanics settings; `{seconds}` is replaced with the live
+remaining time. **Automatically End Soul Burn on Fate Shift** is disabled by
+default. When enabled, the normal ending animation and workflow begin after the
+countdown and delayed Item use complete. When disabled, Fate Shift leaves Soul
+Burn active.
 
 ### AetherGlow and AGT
 
@@ -423,12 +425,11 @@ Activation preserves the supplied sequence:
 
 The ripple uses the original live backdrop-filter implementation. It does not
 copy or read back the WebGL canvas. During the ripple and recovery, the
-activating token's transparent source image or video is positioned above the
-grade and follows the live token and camera. This keeps only the token colored,
-without preserving a circular area around it or risking GPU-readback black
-artifacts. While the backdrop filter is active, a synchronized fire-preserving
-treatment remains on the repainted full-color token so its persistent fire does
-not appear to vanish until recovery completes.
+activating token's transparent texture is used as an alpha-mask cutout in the
+grade, and that cutout follows the live token and camera. The actual canvas
+token and its TokenMagic animation therefore remain visible in full color.
+There is no rectangular DOM-media repaint, synthetic glow, circular color aura,
+or GPU-readback black artifact.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,
