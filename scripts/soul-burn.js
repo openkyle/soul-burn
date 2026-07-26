@@ -2560,7 +2560,16 @@ async function showPlayerUses(activeActor) {
   }).render(true);
 }
 
+const activeSoulBurnDashboards = new Map();
+
 async function dashboard(actor, token) {
+  const existing = activeSoulBurnDashboards.get(actor.id);
+  if (existing) {
+    existing.bringToTop?.();
+    existing.element?.find?.("button:visible")?.first?.().trigger?.("focus");
+    return;
+  }
+
   const current = state(actor);
   const max = maximumBurn(actor);
   const burnProgress = max > 0
@@ -2634,8 +2643,14 @@ async function dashboard(actor, token) {
           finish(value, dialog);
         });
       },
-      close: () => finish(null)
+      close: () => {
+        if (activeSoulBurnDashboards.get(actor.id) === dialog) {
+          activeSoulBurnDashboards.delete(actor.id);
+        }
+        finish(null);
+      }
     });
+    activeSoulBurnDashboards.set(actor.id, dialog);
     dialog.render(true);
   });
 
@@ -2927,7 +2942,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.37"
+    version: "1.0.38"
   });
 
   await cleanLegacyCompendiumIndex();

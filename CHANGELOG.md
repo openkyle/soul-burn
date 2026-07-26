@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.38
+
+- Made the Soul Burn dashboard an actor-scoped singleton. Repeated Foundry,
+  dnd5e, or Tidy5e use events now focus the existing window instead of opening
+  duplicate instances.
+
 ## 1.0.37
 
 - Added the GM option **Fate Shift Uses Confirmation Button**. Disabled keeps

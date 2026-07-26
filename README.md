@@ -381,6 +381,10 @@ The primary dialog intentionally follows the original campaign interface:
 - **More Info** for the complete rules
 - **SOUL BURN** with a separate risk-confirmation dialog
 
+Only one primary Soul Burn dialog can be open per Actor on a client. If
+multiple Foundry or Tidy5e hooks report the same click, the existing dialog is
+focused instead of creating another instance.
+
 When the character is actively Soul Burning, the dialog retains Player Uses
 and More Info, then presents one full-width **End Soul Burn** button. The three
 combat Items also remain together above Weapons on the Inventory tab.
