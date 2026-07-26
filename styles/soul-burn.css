@@ -55,11 +55,7 @@
   position: absolute;
   z-index: 1;
   background: rgba(255, 255, 255, 0.001);
-  border: 1px solid rgba(235, 235, 235, 0.55);
-  border-radius: 50%;
-  transform: scale(0.001);
-  transform-origin: center;
-  will-change: transform, opacity;
+  will-change: clip-path, opacity;
 }
 
 .soul-burn-sound-form .form-fields input {

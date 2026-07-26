@@ -437,12 +437,16 @@ Activation preserves the supplied sequence:
 9. Leave the battlefield at the configured contrast and desaturation, then
    fade it back to its original grading over the configured real-time duration.
 
-The ripple uses one live backdrop-filter layer. It does not copy or read back
-the WebGL canvas, create a second token image, or maintain a moving token mask.
-The existing Sequencer and TokenMagic effects continue running normally on the
-Foundry canvas while the battlefield grade expands and recovers. Avoiding live
-mask writes prevents the ripple timer from repeatedly invalidating the canvas
-compositor or forcing character-sheet redraws.
+The ripple uses one fixed, full-canvas backdrop-filter layer revealed by an
+expanding `clip-path`. A stable alpha-shaped cutout matching the activating
+token exposes that live token and its TokenMagic effects in color while the
+rest of the battlefield is graded. The cutout is recalculated only when the
+camera or affected Token moves; it is not rewritten by the recovery timer.
+
+The module does not copy or read back the WebGL canvas, create a second token
+image, paint a colored aura, or add its own glow. This avoids the black frames,
+rectangular duplicates, and continuous character-sheet compositor invalidation
+caused by earlier color-preservation experiments.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,

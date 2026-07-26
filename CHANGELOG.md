@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.41
+
+- Restored the intended visual separation: the ripple grades the battlefield
+  to grayscale while the activating token and its live TokenFX remain visible
+  in color through an alpha-shaped cutout.
+- Rebuilt the ripple as a fixed full-canvas grade animated with `clip-path`.
+  This avoids scaling and rewriting the token mask on every timer frame.
+- The cutout is refreshed only when the camera or affected Token moves, with
+  identical geometry writes cached and updates coalesced to one animation
+  frame.
+- No duplicate token image, canvas readback, colored aura, or module-created
+  glow is rendered.
+
 ## 1.0.40
 
 - Removed the live token alpha-mask tracker from the battlefield ripple. It

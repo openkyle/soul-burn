@@ -1485,6 +1485,7 @@ function stopBattlefieldRipple() {
   if (!active) return;
   activeBattlefieldRipple = null;
   active.animation?.cancel();
+  if (active.maskFrame) cancelAnimationFrame(active.maskFrame);
   if (active.timer) clearTimeout(active.timer);
   active.overlay?.remove();
 }
@@ -1528,6 +1529,61 @@ function battlefieldRippleOrigin(request, view) {
   );
 }
 
+function updateBattlefieldTokenCutout(effect) {
+  if (activeBattlefieldRipple !== effect) return;
+  const token = battlefieldRippleToken(effect.request);
+  const currentSrc = tokenImagePath(token?.document?.texture)
+    || tokenImagePath(token?.document?.img);
+  if (!token || !currentSrc || !token.visible) return;
+
+  const topLeft = battlefieldScreenPoint(
+    { x: Number(token.document.x), y: Number(token.document.y) },
+    effect.view
+  );
+  const bottomRight = battlefieldScreenPoint(
+    {
+      x: Number(token.document.x) + Number(token.w),
+      y: Number(token.document.y) + Number(token.h)
+    },
+    effect.view
+  );
+  if (!topLeft || !bottomRight) return;
+
+  const quantize = value => Math.round(Number(value) * 2) / 2;
+  const left = quantize(Math.min(topLeft.x, bottomRight.x));
+  const top = quantize(Math.min(topLeft.y, bottomRight.y));
+  const width = quantize(Math.abs(bottomRight.x - topLeft.x));
+  const height = quantize(Math.abs(bottomRight.y - topLeft.y));
+  const maskImage = `linear-gradient(#fff 0 0), url(${JSON.stringify(currentSrc)})`;
+  const maskSize = `100% 100%, ${width}px ${height}px`;
+  const maskPosition = `0 0, ${left}px ${top}px`;
+  const maskKey = `${currentSrc}|${maskSize}|${maskPosition}`;
+  if (effect.maskKey === maskKey) return;
+
+  effect.maskKey = maskKey;
+  Object.assign(effect.circle.style, {
+    maskImage,
+    webkitMaskImage: maskImage,
+    maskSize,
+    webkitMaskSize: maskSize,
+    maskPosition,
+    webkitMaskPosition: maskPosition,
+    maskRepeat: "no-repeat",
+    webkitMaskRepeat: "no-repeat",
+    maskComposite: "exclude",
+    webkitMaskComposite: "xor"
+  });
+}
+
+function scheduleBattlefieldTokenCutout() {
+  const effect = activeBattlefieldRipple;
+  if (!effect || effect.maskFrame) return;
+  effect.maskFrame = requestAnimationFrame(() => {
+    effect.maskFrame = null;
+    updateBattlefieldTokenCutout(effect);
+  });
+}
+
 async function playBattlefieldRipple(request = {}) {
   const { sceneId } = request;
   if (!canvas?.ready || !canvas.scene || canvas.scene.id !== sceneId) return;
@@ -1559,15 +1615,16 @@ async function playBattlefieldRipple(request = {}) {
     Math.hypot(point.x, rect.height - point.y),
     Math.hypot(rect.width - point.x, rect.height - point.y)
   );
-  const diameter = Math.max(1, distance * 2.08);
+  const finalRadius = Math.max(1, distance * 1.04);
   const contrast = 100 + settings.contrast;
   const circle = document.createElement("div");
   circle.className = "soul-burn-battlefield-wave";
   Object.assign(circle.style, {
-    width: `${diameter}px`,
-    height: `${diameter}px`,
-    left: `${point.x - diameter / 2}px`,
-    top: `${point.y - diameter / 2}px`,
+    width: "100%",
+    height: "100%",
+    left: "0",
+    top: "0",
+    clipPath: `circle(0.5px at ${point.x}px ${point.y}px)`,
     backdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`,
     webkitBackdropFilter: `contrast(${contrast}%) grayscale(${settings.desaturation}%)`
   });
@@ -1576,8 +1633,14 @@ async function playBattlefieldRipple(request = {}) {
 
   const animation = circle.animate(
     [
-      { transform: "scale(0.001)", opacity: 0 },
-      { transform: "scale(1)", opacity: 1 }
+      {
+        clipPath: `circle(0.5px at ${point.x}px ${point.y}px)`,
+        opacity: 0
+      },
+      {
+        clipPath: `circle(${finalRadius}px at ${point.x}px ${point.y}px)`,
+        opacity: 1
+      }
     ],
     {
       duration: RIPPLE_EXPANSION_MS,
@@ -1590,25 +1653,33 @@ async function playBattlefieldRipple(request = {}) {
     animation,
     overlay,
     circle,
+    view,
     request,
+    maskKey: null,
+    maskFrame: null,
     timer: null
   };
   activeBattlefieldRipple = effect;
+  updateBattlefieldTokenCutout(effect);
 
   try {
     await animation.finished;
   } catch (_error) {
     if (activeBattlefieldRipple === effect) {
       activeBattlefieldRipple = null;
+      if (effect.maskFrame) cancelAnimationFrame(effect.maskFrame);
       overlay.remove();
     }
     return;
   }
   if (activeBattlefieldRipple !== effect) return;
+  circle.style.clipPath = `circle(${finalRadius}px at ${point.x}px ${point.y}px)`;
+  circle.style.opacity = "1";
+  animation.cancel();
 
   // Keep the backdrop-filter in place and fade the single ripple layer away.
-  // No token mask is maintained: avoiding live CSS mask rewrites keeps
-  // Foundry's canvas and character sheets out of a continuous repaint loop.
+  // Its static alpha cutout exposes the live canvas token and TokenFX without
+  // duplicating the token or continuously repainting the WebGL canvas.
   effect.animation = circle.animate(
     [{ opacity: 1 }, { opacity: 0 }],
     {
@@ -1645,6 +1716,20 @@ function broadcastBattlefieldRipple(token) {
 
 Hooks.on("canvasTearDown", () => {
   stopBattlefieldRipple();
+});
+
+Hooks.on("canvasPan", () => {
+  scheduleBattlefieldTokenCutout();
+});
+
+Hooks.on("updateToken", tokenDocument => {
+  const effect = activeBattlefieldRipple;
+  if (!effect) return;
+  if (
+    tokenDocument.id !== effect.request.tokenId
+    && tokenDocument.actorId !== effect.request.actorId
+  ) return;
+  scheduleBattlefieldTokenCutout();
 });
 
 async function playAnimation(token, nextState) {
@@ -2880,7 +2965,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.40"
+    version: "1.0.41"
   });
 
   await cleanLegacyCompendiumIndex();
