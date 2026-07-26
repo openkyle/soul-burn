@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.35
+
+- Reduced the Soul Burn Inventory attack-name text to `0.72rem` without
+  changing the uses, activation, AGT, or rounds text.
+
 ## 1.0.34
 
 - Moved the grayscale ripple's built-in cue 3 seconds earlier in the
