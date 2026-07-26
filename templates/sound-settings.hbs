@@ -49,12 +49,12 @@
     <div class="tab" data-group="primary" data-tab="visuals">
       <h2>Battlefield Ripple</h2>
       <p class="notes">
-        After the original full-color animated power-up completes and the
-        configured delay elapses, a live grayscale refractive wave expands from
-        the transformed character.
+        The base grayscale cue occurs three seconds earlier than the original
+        animation endpoint. After the configured Delay elapses, a live
+        refractive wave expands from the transformed character.
         Every connected client resolves the origin from that token using its
         own camera position and zoom. The transformed token remains in full
-        color above the battlefield grade.
+        color above the battlefield grade, with its fire visually preserved.
       </p>
 
       <div class="form-group">
@@ -63,7 +63,7 @@
           <input type="number" name="rippleDelaySeconds" value="{{rippleDelaySeconds}}" min="0" max="30" step="0.1">
           <span class="units">seconds</span>
         </div>
-        <p class="hint">Time after the full-color animation completes before the ripple starts. Set to 0 for immediate playback.</p>
+        <p class="hint">Additional time after the early ripple cue. Default: 1 second; set to 0 for the earliest playback.</p>
       </div>
 
       <div class="form-group">
@@ -144,26 +144,26 @@
       </div>
 
       <div class="form-group">
-        <label>Constitution Check on End</label>
+        <label>Constitution Save on End</label>
         <div class="form-fields">
           <input type="checkbox" name="requireEndConSave" {{checked requireEndConSave}}>
         </div>
-        <p class="hint">Require and report a Constitution ability check whenever Soul Burn ends.</p>
+        <p class="hint">Post a chat request for the owning player to roll a Constitution saving throw whenever Soul Burn ends.</p>
       </div>
 
       <div class="form-group">
-        <label>Apply Exhaustion on Failed Check</label>
+        <label>Apply Exhaustion on Failed Save</label>
         <div class="form-fields">
           <input type="checkbox" name="applyExhaustionOnFailedConCheck" {{checked applyExhaustionOnFailedConCheck}}>
         </div>
         <p class="hint">
-          Adds one exhaustion level after a failed check. Enabling this option
-          also enables Constitution Check on End.
+          Adds one exhaustion level after a failed save. Enabling this option
+          also enables Constitution Save on End.
         </p>
       </div>
 
       <div class="form-group">
-        <label>Constitution Check DC</label>
+        <label>Constitution Save DC</label>
         <div class="form-fields">
           <input type="number" name="endConSaveDC" value="{{endConSaveDC}}" min="1" max="30" step="1">
         </div>
@@ -171,15 +171,15 @@
       </div>
 
       <div class="form-group">
-        <label>Escalating Constitution DC</label>
+        <label>Escalating Constitution Save DC</label>
         <div class="form-fields">
           <input type="checkbox" name="escalatingEndConSaveDC" {{checked escalatingEndConSaveDC}}>
         </div>
         <p class="hint">
-          Starts at the Constitution Check DC above on the first lifetime Soul
+          Starts at the Constitution Save DC above on the first lifetime Soul
           Burn use, then increases by 2 for each later use. A failed escalating
           check automatically adds one level of exhaustion. Enabling this also
-          enables Constitution Check on End and exhaustion on failure.
+          enables Constitution Save on End and exhaustion on failure.
         </p>
       </div>
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.34
+
+- Moved the grayscale ripple's built-in cue 3 seconds earlier in the
+  5.4-second power-up timeline.
+- Changed the GM ripple **Delay** default to 1 second. Delay is now an explicit
+  offset from the early cue, with no hidden wait for the animation endpoint.
+- The transformed token image is now applied before TokenMagic so the managed
+  fire filter attaches to the final token mesh instead of disappearing during
+  the texture swap.
+- Added a synchronized fire-preservation treatment to the full-color token
+  repaint while the battlefield backdrop filter is active. The persistent fire
+  no longer appears to vanish until grayscale recovery completes.
+- End-of-burn Constitution resolution now posts a one-use saving throw request
+  to chat. The owning player invokes their native dnd5e Constitution save from
+  that card; the module no longer rolls it automatically.
+- Failure and optional exhaustion are resolved only after the player submits
+  the requested save. Escalating DC details remain attached to the request and
+  result.
+
 ## 1.0.33
 
 - Made **Aether Surge** explicitly self-targeting in both the compendium source

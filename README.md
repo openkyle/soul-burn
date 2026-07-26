@@ -111,7 +111,7 @@ GMs can still edit it. While active, its sheet name and chat-card control become
 transformation ends.
 
 **Exit Soul Burn** immediately resolves the normal end workflow, including
-Burnout and any configured Constitution check. If the character exits during
+Burnout and any configured Constitution saving throw request. If the character exits during
 the same combat in which the burn began, each wholly unused future round in
 the duration removes 1 point from the character's Soul Burn resource. The
 current round is already in use and is not counted. The reduction is clamped
@@ -173,13 +173,14 @@ The GM can change any sound under **Configure Settings → Module Settings →
 Soul Burn Settings**. The settings panel includes Browse, Preview, and Restore
 Bundled Sound controls. It also configures the synchronized battlefield
 ripple's contrast increase, desaturation, and real-time recovery duration. The
-Visuals tab also provides a **Delay** in seconds after the completed power-up;
-its default is 0. The panel is organized into **Sounds**, **Visuals**, and
+Visuals tab also provides a **Delay** in seconds after the early ripple cue;
+its default is 1. The panel is organized into **Sounds**, **Visuals**, and
 **Mechanics** tabs.
 
-Mechanics can require a Constitution check when Soul Burn ends. The optional
-**Apply Exhaustion on Failed Check** setting automatically enables that check
-and adds one dnd5e exhaustion level after a failure, to a maximum of 6.
+Mechanics can request a Constitution saving throw when Soul Burn ends. The
+owning player rolls it from the resulting chat card; the module never rolls it
+automatically. **Apply Exhaustion on Failed Save** automatically enables the
+request and adds one dnd5e exhaustion level after a failure, to a maximum of 6.
 
 The mechanics work without animation modules. These optional modules preserve
 the supplied transformation:
@@ -295,7 +296,7 @@ resource from their sheet. **Save Changes** closes Player Management after the
 update. If either clear path is used during an active burn, the module first
 runs the complete normal ending workflow—including Burnout resolution, visual
 and movement restoration, end sound, chat output, and the configured
-Constitution check—then removes the resource.
+Constitution saving throw request—then removes the resource.
 
 ### Combat duration and ending
 
@@ -319,13 +320,14 @@ The activation card logs the starting and expiry rounds. Automatic expiry:
 - Plays the configured ending sound.
 - Posts a transformation-ending chat card.
 - Resolves pending Burnout messaging.
-- Optionally rolls a Constitution ability check against the GM-configured DC.
-- Optionally applies one exhaustion level when that check fails.
-- With **Escalating Constitution DC** enabled, the first lifetime use checks
-  against the configured base DC and each later use adds 2. A failed escalating
-  check automatically adds one exhaustion level.
+- Optionally posts a player-owned Constitution saving throw request against the
+  GM-configured DC.
+- Optionally applies one exhaustion level when that submitted save fails.
+- With **Escalating Constitution Save DC** enabled, the first lifetime use
+  saves against the configured base DC and each later use adds 2. A failed
+  escalating save automatically adds one exhaustion level.
 
-Configure the ending sound and optional Constitution check under **Configure
+Configure the ending sound and optional Constitution save under **Configure
 Settings → Module Settings → Soul Burn Settings**. The ending-sound field uses
 Foundry's audio browser and includes Preview and Restore Bundled Sound buttons.
 
@@ -404,16 +406,19 @@ Activation preserves the supplied sequence:
 
 1. Play `AetherUp3.ogg`.
 2. Wait 700 ms.
-3. Play the yellow JB2A Sacred Flame explosion for 5.4 seconds at 2× scale.
-4. Apply the animated white TokenMagic fire filter.
+3. Start the yellow JB2A Sacred Flame explosion for 5.4 seconds at 2× scale.
+4. Cue the remaining transformation 3 seconds before that animation's nominal
+   endpoint.
 5. Swap the token to the campaign-specific transformed image.
-6. Wait for the GM-configured ripple **Delay** after the completed full-color
-   transformation. The default is 0 seconds.
-7. Send the live grayscale refractive ripple outward from the transformed token
+6. Apply the animated white TokenMagic fire filter to the final transformed
+   token mesh.
+7. Wait for the GM-configured ripple **Delay** after the early cue. The default
+   is 1 second.
+8. Send the live grayscale refractive ripple outward from the transformed token
    for all clients viewing the scene. Each client resolves the token through
    its own camera transform so the origin remains correct at different pans and
    zoom levels.
-8. Leave the battlefield at the configured contrast and desaturation, then
+9. Leave the battlefield at the configured contrast and desaturation, then
    fade it back to its original grading over the configured real-time duration.
 
 The ripple uses the original live backdrop-filter implementation. It does not
@@ -421,8 +426,9 @@ copy or read back the WebGL canvas. During the ripple and recovery, the
 activating token's transparent source image or video is positioned above the
 grade and follows the live token and camera. This keeps only the token colored,
 without preserving a circular area around it or risking GPU-readback black
-artifacts. The full JB2A power-up completes before the ripple delay begins, so
-the power-up animation is never desaturated.
+artifacts. While the backdrop filter is active, a synchronized fire-preserving
+treatment remains on the repainted full-color token so its persistent fire does
+not appear to vanish until recovery completes.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,

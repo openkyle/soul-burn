@@ -311,7 +311,7 @@ class SoulBurnPlayerManager extends FormApplication {
         title: `Clear ${actor.name}'s Soul Burn Data`,
         content: `<p>This resets <strong>${esc(actor.name)}</strong>'s AGT and removes Soul Burn from the tertiary resource slot.</p>
           ${current.active
-            ? `<p><strong>${esc(actor.name)} is actively Soul Burning.</strong> The burn will end normally first, including Burnout resolution and configured end checks.</p>`
+            ? `<p><strong>${esc(actor.name)} is actively Soul Burning.</strong> The burn will end normally first, including Burnout resolution and any configured Constitution save request.</p>`
             : ""}
           <p>Lifetime Uses and the configured transformation image are preserved.</p>`
       });
@@ -427,23 +427,23 @@ Hooks.once("init", () => {
   });
   game.settings.register("soul-burn", "rippleDelaySeconds", {
     name: "Battlefield Ripple Delay",
-    hint: "Seconds to wait after the full-color power-up animation completes before the ripple begins.",
+    hint: "Additional seconds after the early ripple cue before the grayscale wave begins.",
     scope: "world",
     config: false,
     type: Number,
-    default: 0
+    default: 1
   });
   game.settings.register("soul-burn", "requireEndConSave", {
-    name: "Require Constitution Check When Soul Burn Ends",
-    hint: "Roll a Constitution ability check and report the result when any Soul Burn period ends.",
+    name: "Require Constitution Save When Soul Burn Ends",
+    hint: "Post a chat request for the owning player to roll a Constitution saving throw when Soul Burn ends.",
     scope: "world",
     config: false,
     type: Boolean,
     default: false
   });
   game.settings.register("soul-burn", "applyExhaustionOnFailedConCheck", {
-    name: "Apply Exhaustion on Failed Constitution Check",
-    hint: "Add one exhaustion level when the configured end-of-burn Constitution check fails.",
+    name: "Apply Exhaustion on Failed Constitution Save",
+    hint: "Add one exhaustion level when the requested end-of-burn Constitution saving throw fails.",
     scope: "world",
     config: false,
     type: Boolean,
@@ -467,15 +467,15 @@ Hooks.once("init", () => {
   });
   game.settings.register("soul-burn", "endConSaveDC", {
     name: "Soul Burn End Constitution DC",
-    hint: "The DC used for the optional Constitution ability check.",
+    hint: "The DC used for the optional Constitution saving throw.",
     scope: "world",
     config: false,
     type: Number,
     default: 10
   });
   game.settings.register("soul-burn", "escalatingEndConSaveDC", {
-    name: "Escalating Constitution DC",
-    hint: "Start at the configured DC on the first lifetime Soul Burn use, then add 2 for every later use. Failed escalating checks add one exhaustion level.",
+    name: "Escalating Constitution Save DC",
+    hint: "Start at the configured save DC on the first lifetime Soul Burn use, then add 2 for every later use. Failed escalating saves add one exhaustion level.",
     scope: "world",
     config: false,
     type: Boolean,
@@ -524,7 +524,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu("soul-burn", "soundSettings", {
     name: "Soul Burn Settings",
     label: "Configure Soul Burn",
-    hint: "Configure the battlefield ripple, High Stakes Mode, sounds, and end-of-burn Constitution checks.",
+    hint: "Configure the battlefield ripple, High Stakes Mode, sounds, and end-of-burn Constitution saves.",
     icon: "fas fa-fire-flame-curved",
     type: SoulBurnSoundSettings,
     restricted: true
@@ -708,7 +708,8 @@ function state(actor) {
     endsRound: saved.endsRound ?? null,
     durationRounds: Number(saved.durationRounds ?? 0),
     baseMovement: saved.baseMovement ?? {},
-    originalImages: saved.originalImages ?? {}
+    originalImages: saved.originalImages ?? {},
+    pendingEndConSave: saved.pendingEndConSave ?? null
   };
 }
 
@@ -941,7 +942,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
     data.img = "modules/soul-burn/icons/soul-burn.png";
     data.system.description ??= {};
     data.system.description.value =
-      "<p>End your active Soul Burn. You return to your normal state. Soul Burn resolves immediately, including Burnout and appropriate DC checks.</p><p>If you are in combat and end your Soul Burn early, your Soul Burn is reduced by the number of rounds remaining in your duration.</p>";
+      "<p>End your active Soul Burn. You return to your normal state. Soul Burn resolves immediately, including Burnout and any configured Constitution saving throw request.</p><p>If you are in combat and end your Soul Burn early, your Soul Burn is reduced by the number of rounds remaining in your duration.</p>";
     data.system.activation = { type: "bonus", cost: 1, condition: "" };
     data.system.target = { value: null, width: null, units: "", type: "self" };
     data.system.range = { value: null, long: null, units: "self" };
@@ -1386,6 +1387,8 @@ function toleranceLine(value) {
 }
 
 const RIPPLE_EXPANSION_MS = 2400;
+const POWER_UP_ANIMATION_MS = 5400;
+const RIPPLE_EARLY_OFFSET_MS = 3000;
 let activeBattlefieldRipple = null;
 
 function battlefieldRippleSettings() {
@@ -1489,6 +1492,10 @@ function updateTokenColorPreserver(effect) {
 
   if (!effect.media || effect.media.dataset.src !== currentSrc) {
     const replacement = tokenPreserverMedia(currentSrc);
+    replacement.classList.toggle(
+      "soul-burn-token-fire-preserver",
+      Boolean(effect.request.preserveFire && globalThis.TokenMagic)
+    );
     effect.media?.replaceWith(replacement);
     if (!effect.media) effect.overlay.append(replacement);
     effect.media = replacement;
@@ -1633,7 +1640,8 @@ function broadcastBattlefieldRipple(token) {
     tokenId: token.document?.id,
     sceneId: canvas.scene.id,
     x: Number(center.x),
-    y: Number(center.y)
+    y: Number(center.y),
+    preserveFire: Boolean(globalThis.TokenMagic)
   };
   void playBattlefieldRipple(request);
   game.socket.emit("module.soul-burn", request);
@@ -1661,17 +1669,22 @@ async function playAnimation(token, nextState) {
   if (globalThis.Sequence) {
     try {
       await wait(700);
-      const animationDuration = 5400;
       const sequence = new Sequence()
         .effect()
         .file(SB.sacredFlame)
         .atLocation(token)
         .scale(2)
-        .duration(animationDuration);
-      // Sequencer versions differ on whether play() resolves at launch or at
-      // completion. Waiting on both guarantees that the grayscale ripple never
-      // starts before the configured full-color animation has finished.
-      await Promise.all([sequence.play(), wait(animationDuration)]);
+        .duration(POWER_UP_ANIMATION_MS);
+      const playback = sequence.play();
+      // Cue the ripple three seconds before the nominal animation endpoint.
+      // The GM-configured Delay is the only additional timing offset.
+      await wait(Math.max(
+        0,
+        POWER_UP_ANIMATION_MS - RIPPLE_EARLY_OFFSET_MS
+      ));
+      void Promise.resolve(playback).catch(error => {
+        console.warn("Soul Burn | Sequencer/JB2A playback ended early.", error);
+      });
     } catch (error) {
       console.warn("Soul Burn | Sequencer/JB2A animation skipped.", error);
     }
@@ -1679,6 +1692,23 @@ async function playAnimation(token, nextState) {
     ui.notifications.warn("Sequencer is unavailable; Soul Burn mechanics still activated.");
   }
 
+  const original = tokenImagePath(token.document.texture)
+    || tokenImagePath(token.document.img)
+    || prototypeTokenImage(token.actor);
+  if (!tokenImagePath(nextState.originalImages[token.document.uuid])) {
+    nextState.originalImages[token.document.uuid] = original;
+  }
+  const imageName = cleanName(token.actor.name).replace(/\s+/g, "");
+  const transformedImage = String(nextState.transformedImage ?? "").trim()
+    || `${SB.transformedTokenRoot}/${encodeURIComponent(imageName)}.webp`;
+  try {
+    await token.document.update({ "texture.src": transformedImage });
+  } catch (error) {
+    console.warn("Soul Burn | Transformed token image unavailable.", error);
+  }
+
+  // Attach TokenMagic to the final transformed mesh. Applying it before the
+  // texture swap can temporarily detach the filter until TokenMagic rebuilds.
   if (globalThis.TokenMagic) {
     const params = [{
       filterType: "fire",
@@ -1708,23 +1738,7 @@ async function playAnimation(token, nextState) {
     }
   }
 
-  const original = tokenImagePath(token.document.texture)
-    || tokenImagePath(token.document.img)
-    || prototypeTokenImage(token.actor);
-  if (!tokenImagePath(nextState.originalImages[token.document.uuid])) {
-    nextState.originalImages[token.document.uuid] = original;
-  }
-  const imageName = cleanName(token.actor.name).replace(/\s+/g, "");
-  const transformedImage = String(nextState.transformedImage ?? "").trim()
-    || `${SB.transformedTokenRoot}/${encodeURIComponent(imageName)}.webp`;
-  try {
-    await token.document.update({ "texture.src": transformedImage });
-  } catch (error) {
-    console.warn("Soul Burn | Transformed token image unavailable.", error);
-  }
-
-  // The complete power-up remains full color. The GM-configured delay begins
-  // only after that animation and the token transformation have finished.
+  // Delay is an explicit GM offset from the earlier base cue.
   const rippleDelayMs = battlefieldRippleSettings().delaySeconds * 1000;
   if (rippleDelayMs > 0) await wait(rippleDelayMs);
   broadcastBattlefieldRipple(token);
@@ -2023,43 +2037,38 @@ async function endBurn(actor, reason = "Soul Burn ends") {
   await syncSoulBurnFeature(actor, false);
   renderActorSheetSoon(actor);
 
-  let constitutionRoll = null;
   let constitutionSummary = "";
   if (game.settings.get("soul-burn", "requireEndConSave")) {
     const dcDetails = endConstitutionDC(current);
     const dc = dcDetails.value;
-    const modifier = Number(actor.system.abilities?.con?.mod ?? 0);
-    constitutionRoll = await makeRoll("1d20 + @modifier", { modifier });
-    const passed = constitutionRoll.total >= dc;
-    let exhaustionSummary = "";
-    if (
-      !passed
-      && (
-        game.settings.get("soul-burn", "applyExhaustionOnFailedConCheck")
-        || dcDetails.escalating
-      )
-    ) {
-      const previousExhaustion = Math.min(
-        6,
-        Math.max(0, Number(actor.system.attributes?.exhaustion) || 0)
-      );
-      const nextExhaustion = Math.min(6, previousExhaustion + 1);
-      if (nextExhaustion !== previousExhaustion) {
-        await actor.update({ "system.attributes.exhaustion": nextExhaustion });
+    const requestId = foundry.utils.randomID();
+    await saveMetadataOnly(actor, {
+      ...state(actor),
+      pendingEndConSave: {
+        id: requestId,
+        dc,
+        baseDC: dcDetails.base,
+        additionalDC: dcDetails.additional,
+        escalating: dcDetails.escalating,
+        uses: current.uses,
+        applyExhaustion: Boolean(
+          game.settings.get(
+            "soul-burn",
+            "applyExhaustionOnFailedConCheck"
+          ) || dcDetails.escalating
+        )
       }
-      exhaustionSummary = `
-        <p><strong>Exhaustion Applied:</strong> Level ${previousExhaustion} → ${nextExhaustion}${nextExhaustion >= 6 ? " (maximum)" : ""}</p>`;
-    }
+    });
     constitutionSummary = `
       ${dcDetails.escalating
         ? `<p><strong>Escalating DC:</strong> ${dcDetails.base} base + ${dcDetails.additional} from ${current.uses} lifetime Soul Burn use${current.uses === 1 ? "" : "s"} = <strong>${dc}</strong></p>`
         : ""}
-      <p><strong>Constitution Check:</strong> ${constitutionRoll.total} vs DC ${dc}
-      — <strong>${passed ? "Success" : "Failure"}</strong></p>
-      ${exhaustionSummary}
-      ${exhaustionSummary
-        ? ""
-        : "<p><em>The GM resolves the consequences of this check.</em></p>"}`;
+      <p><strong>Constitution Saving Throw Requested:</strong> DC ${dc}</p>
+      <p><button type="button" data-soul-burn-con-save="${requestId}"
+                 data-actor-id="${actor.id}">
+        <i class="fas fa-shield-halved"></i> Roll Constitution Save — DC ${dc}
+      </button></p>
+      <p><em>The owning player must roll this save from the chat card.</em></p>`;
   }
 
   const durationSummary = current.combatId && current.startedRound !== null
@@ -2079,8 +2088,68 @@ async function endBurn(actor, reason = "Soul Burn ends") {
       ? `<p><strong>${esc(finale.style)}</strong></p><p>${finale.text}</p>`
       : `<p>${esc(actor.name)} transforms back and is no longer Soul Burning.</p>`}
      ${constitutionSummary}`,
-    constitutionRoll
+    null
   );
+}
+
+async function resolveEndConSave(actor, requestId) {
+  if (!actor) throw new Error("The character for this Constitution save no longer exists.");
+  if (!game.user.isGM && !actor.isOwner) {
+    throw new Error(`You do not own ${actor.name} and cannot roll this save.`);
+  }
+
+  const current = state(actor);
+  const pending = current.pendingEndConSave;
+  if (!pending || pending.id !== requestId) {
+    ui.notifications.warn(`${actor.name}'s Constitution save request has already been resolved or replaced.`);
+    return false;
+  }
+
+  let roll = null;
+  if (typeof actor.rollAbilitySave === "function") {
+    roll = await actor.rollAbilitySave("con", { chatMessage: false });
+  } else {
+    const saveModifier = Number(
+      actor.system.abilities?.con?.save
+        ?? actor.system.abilities?.con?.mod
+        ?? 0
+    );
+    roll = await makeRoll("1d20 + @save", { save: saveModifier });
+  }
+  if (!roll) return false;
+
+  const total = Number(roll.total ?? 0);
+  const dc = Math.max(1, Number(pending.dc) || 10);
+  const passed = total >= dc;
+  let exhaustionSummary = "";
+  if (!passed && pending.applyExhaustion) {
+    const previousExhaustion = Math.min(
+      6,
+      Math.max(0, Number(actor.system.attributes?.exhaustion) || 0)
+    );
+    const nextExhaustion = Math.min(6, previousExhaustion + 1);
+    if (nextExhaustion !== previousExhaustion) {
+      await actor.update({ "system.attributes.exhaustion": nextExhaustion });
+    }
+    exhaustionSummary = `<p><strong>Exhaustion Applied:</strong> Level ${previousExhaustion} → ${nextExhaustion}${nextExhaustion >= 6 ? " (maximum)" : ""}</p>`;
+  }
+
+  await saveMetadataOnly(actor, {
+    ...state(actor),
+    pendingEndConSave: null
+  });
+  const escalationSummary = pending.escalating
+    ? `<p><strong>Escalating DC:</strong> ${pending.baseDC} base + ${pending.additionalDC} from ${pending.uses} lifetime Soul Burn use${pending.uses === 1 ? "" : "s"} = <strong>${dc}</strong></p>`
+    : "";
+  await roll.toMessage({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flavor: `<h3>Soul Burn Constitution Save</h3>
+      ${escalationSummary}
+      <p><strong>${esc(actor.name)}</strong> rolled <strong>${total}</strong> vs DC ${dc}
+      — <strong>${passed ? "Success" : "Failure"}</strong></p>
+      ${exhaustionSummary}`
+  });
+  return true;
 }
 
 async function fateShift(actor) {
@@ -2352,7 +2421,7 @@ async function showRules() {
     "soul-burn",
     "escalatingEndConSaveDC"
   )
-    ? `<p><strong>Escalating Constitution DC:</strong> The first lifetime Soul Burn use checks against the GM's configured base DC. Each later use adds 2 to that DC. A failed escalating check adds one exhaustion level.</p>`
+    ? `<p><strong>Escalating Constitution Save DC:</strong> The first lifetime Soul Burn use saves against the GM's configured base DC. Each later use adds 2 to that DC. A failed escalating save adds one exhaustion level.</p>`
     : "";
   new Dialog({
     title: "Soul Burn Rules",
@@ -2773,7 +2842,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.33"
+    version: "1.0.34"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -3320,5 +3389,27 @@ $(document)
       if (!limitedAction || !message?.getFlag("soul-burn", resolvedFlag)) {
         button.prop("disabled", false);
       }
+    }
+  });
+
+$(document)
+  .off("click.soulBurnConSave", "[data-soul-burn-con-save]")
+  .on("click.soulBurnConSave", "[data-soul-burn-con-save]", async event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const button = $(event.currentTarget);
+    const actor = game.actors.get(event.currentTarget.dataset.actorId);
+    const requestId = event.currentTarget.dataset.soulBurnConSave;
+    button.prop("disabled", true);
+    try {
+      const resolved = await resolveEndConSave(actor, requestId);
+      if (resolved) {
+        button.html('<i class="fas fa-check"></i> Constitution Save Resolved');
+      } else {
+        button.prop("disabled", false);
+      }
+    } catch (error) {
+      notifyError(error);
+      button.prop("disabled", false);
     }
   });
