@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.40
+
+- Removed the live token alpha-mask tracker from the battlefield ripple. It
+  was continuously invalidating Foundry's canvas compositor and could cause
+  intermittent token flashing and character-sheet redraw artifacts.
+- The effect is now one stable expanding grayscale/contrast layer followed by
+  its configured fade back to normal. Existing Sequencer and TokenMagic
+  animations continue running on the canvas without module-driven redraws.
+- Removed the colored ripple glow and secondary blur ring, leaving a clean,
+  neutral grayscale wave.
+
 ## 1.0.39
 
 - Moved the compact **AG Die Reduction** line directly beneath **Next Soul

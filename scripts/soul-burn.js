@@ -1485,7 +1485,6 @@ function stopBattlefieldRipple() {
   if (!active) return;
   activeBattlefieldRipple = null;
   active.animation?.cancel();
-  if (active.frame) cancelAnimationFrame(active.frame);
   if (active.timer) clearTimeout(active.timer);
   active.overlay?.remove();
 }
@@ -1527,62 +1526,6 @@ function battlefieldRippleOrigin(request, view) {
     { x: Number(request.x), y: Number(request.y) },
     view
   );
-}
-
-function updateTokenColorMask(effect) {
-  if (activeBattlefieldRipple !== effect) return;
-  const token = battlefieldRippleToken(effect.request);
-  const currentSrc = tokenImagePath(token?.document?.texture)
-    || tokenImagePath(token?.document?.img);
-  if (!token || !currentSrc || !token.visible) {
-    effect.frame = requestAnimationFrame(() => updateTokenColorMask(effect));
-    return;
-  }
-
-  const topLeft = battlefieldScreenPoint(
-    { x: Number(token.document.x), y: Number(token.document.y) },
-    effect.view
-  );
-  const bottomRight = battlefieldScreenPoint(
-    {
-      x: Number(token.document.x) + Number(token.w),
-      y: Number(token.document.y) + Number(token.h)
-    },
-    effect.view
-  );
-  if (topLeft && bottomRight) {
-    const left = Math.min(topLeft.x, bottomRight.x);
-    const top = Math.min(topLeft.y, bottomRight.y);
-    const width = Math.abs(bottomRight.x - topLeft.x);
-    const height = Math.abs(bottomRight.y - topLeft.y);
-    // The wave itself scales outward. Compensate for that transform so the
-    // alpha cutout stays at the token's full on-screen size from the first
-    // ripple frame instead of growing from a tiny square with the wave.
-    const circleRect = effect.circle.getBoundingClientRect();
-    const overlayRect = effect.overlay.getBoundingClientRect();
-    const scaleX = Math.max(0.001, circleRect.width / effect.diameter);
-    const scaleY = Math.max(0.001, circleRect.height / effect.diameter);
-    const renderedLeft = circleRect.left - overlayRect.left;
-    const renderedTop = circleRect.top - overlayRect.top;
-    const relativeLeft = (left - renderedLeft) / scaleX;
-    const relativeTop = (top - renderedTop) / scaleY;
-    const maskImage = `linear-gradient(#fff 0 0), url(${JSON.stringify(currentSrc)})`;
-    const maskSize = `100% 100%, ${width / scaleX}px ${height / scaleY}px`;
-    const maskPosition = `0 0, ${relativeLeft}px ${relativeTop}px`;
-    Object.assign(effect.circle.style, {
-      maskImage,
-      webkitMaskImage: maskImage,
-      maskSize,
-      webkitMaskSize: maskSize,
-      maskPosition,
-      webkitMaskPosition: maskPosition,
-      maskRepeat: "no-repeat",
-      webkitMaskRepeat: "no-repeat",
-      maskComposite: "exclude",
-      webkitMaskComposite: "xor"
-    });
-  }
-  effect.frame = requestAnimationFrame(() => updateTokenColorMask(effect));
 }
 
 async function playBattlefieldRipple(request = {}) {
@@ -1647,30 +1590,25 @@ async function playBattlefieldRipple(request = {}) {
     animation,
     overlay,
     circle,
-    diameter,
-    view,
     request,
-    frame: null,
     timer: null
   };
   activeBattlefieldRipple = effect;
-  updateTokenColorMask(effect);
 
   try {
     await animation.finished;
   } catch (_error) {
     if (activeBattlefieldRipple === effect) {
       activeBattlefieldRipple = null;
-      if (effect.frame) cancelAnimationFrame(effect.frame);
       overlay.remove();
     }
     return;
   }
   if (activeBattlefieldRipple !== effect) return;
 
-  // Keep the live backdrop-filter in place and fade that layer away. Its
-  // token-alpha cutout exposes the real canvas token and TokenMagic effect,
-  // avoiding a rectangular DOM-media duplicate or a circular color aura.
+  // Keep the backdrop-filter in place and fade the single ripple layer away.
+  // No token mask is maintained: avoiding live CSS mask rewrites keeps
+  // Foundry's canvas and character sheets out of a continuous repaint loop.
   effect.animation = circle.animate(
     [{ opacity: 1 }, { opacity: 0 }],
     {
@@ -2942,7 +2880,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.39"
+    version: "1.0.40"
   });
 
   await cleanLegacyCompendiumIndex();
