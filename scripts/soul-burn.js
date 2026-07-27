@@ -12,7 +12,7 @@ const SB = {
   key: "soulBurn",
   effectName: "Soul Burn",
   pack: "soul-burn.soul-burn-features",
-  temporaryActions: ["surge", "channel", "fate", "exit"],
+  temporaryActions: ["surge", "channel", "fate", "libra", "exit"],
   transformedTokenRoot:
     "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/CharTokens/AstrumKnights",
   defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
@@ -948,6 +948,7 @@ function normalizedSoulBurnAction(item) {
   ) return "surge";
   if (id === "ChannelAetherFt1" || name === "channelaether") return "channel";
   if (id === "FateShiftFeature" || name === "fateshift") return "fate";
+  if (id === "LibraSoulBurn01" || name === "libra") return "libra";
   return flagged ?? null;
 }
 
@@ -976,7 +977,7 @@ function ownedSoulBurnActionItems(actor) {
 
 function stripSoulBurnActionButtons(description) {
   return String(description ?? "").replace(
-    /<p>\s*<button[^>]*data-soul-burn-action="(?:surge|strike|channel|fate)"[\s\S]*?<\/button>\s*<\/p>/gi,
+    /<p>\s*<button[^>]*data-soul-burn-action="(?:surge|strike|channel|fate|libra)"[\s\S]*?<\/button>\s*<\/p>/gi,
     ""
   );
 }
@@ -1057,6 +1058,32 @@ function configureRegularSoulBurnItem(data, action, actor) {
       ...(data.system.uses ?? {}),
       prompt: true
     };
+  } else if (action === "libra") {
+    const previousUses = Number(data.system.uses?.value);
+    const usedSinceLongRest = Boolean(actor.getFlag(SB.moduleId, "libraUsed"));
+    data.name = "Libra";
+    data.img = "icons/svg/eye.svg";
+    data.system.description.value =
+      "<p>Read the balance of an enemy's body and defenses. Target one enemy you can see. Libra reveals its current hit points, Armor Class, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses.</p><p>You may use Libra once, regaining the use when you finish a long rest.</p>";
+    data.system.activation = { type: "action", cost: 1, condition: "" };
+    data.system.target = { value: 1, width: null, units: "", type: "creature" };
+    data.system.range = { value: null, long: null, units: "spec" };
+    data.system.uses = {
+      ...(data.system.uses ?? {}),
+      value: usedSinceLongRest
+        ? 0
+        : Number.isFinite(previousUses)
+          ? Math.min(1, Math.max(0, previousUses))
+          : 1,
+      max: "1",
+      per: "lr",
+      recovery: "",
+      prompt: true
+    };
+    data.system.consume = { type: "", target: null, amount: null };
+    data.system.actionType = "other";
+    data.system.formula = "";
+    data.system.requirements = "Active Soul Burn";
   } else if (action === "exit") {
     data.name = "Exit Soul Burn";
     data.img = "modules/soul-burn/icons/soul-burn.png";
@@ -2606,6 +2633,8 @@ async function showRules() {
       <p>You may use Channel Aether a number of times equal to your proficiency bonus, regaining all uses on a short or long rest. Make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
       <h2>Fate Shift (1 Legendary Action)</h2>
       <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. The GM-configured timer or confirmation prompt resolves before any ending animation. Soul Burn ends afterward only if the GM enables automatic ending for Fate Shift.</p>
+      <h2>Libra (1 Action / Long Rest)</h2>
+      <p>Target one enemy you can see to reveal its current hit points, Armor Class, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses. You regain Libra after a long rest.</p>
     </div>`,
     buttons: { close: { icon: '<i class="fas fa-times"></i>', label: "Close" } },
     default: "close"
@@ -3027,7 +3056,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.43"
+    version: "1.0.44"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -3201,9 +3230,181 @@ const activeFateShiftPrompts = new Map();
 const activeFateShiftCountdowns = new Map();
 const pendingFateShiftItemUses = new Map();
 const releasedFateShiftItems = new Set();
+const pendingLibraTargets = new Map();
 
 function soulBurnItemUseKey(item) {
   return String(item?.uuid ?? `${item?.actor?.id ?? "none"}.${item?.id ?? "none"}`);
+}
+
+function collectionValues(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (value instanceof Set || value instanceof Map) return [...value.values()];
+  if (Array.isArray(value.contents)) return value.contents;
+  if (typeof value.values === "function") return [...value.values()];
+  if (typeof value === "object") return Object.values(value);
+  return [];
+}
+
+function localizedConfigLabel(table, key) {
+  const configured = table?.[key];
+  const label = typeof configured === "object"
+    ? configured.label ?? configured.name ?? key
+    : configured ?? key;
+  return game.i18n.localize(String(label));
+}
+
+function libraTraitSummary(actor, traitKey, configTable) {
+  const trait = actor.system.traits?.[traitKey] ?? {};
+  const rawValues = trait.value;
+  const traitValues = rawValues
+    && typeof rawValues === "object"
+    && !Array.isArray(rawValues)
+    && !(rawValues instanceof Set)
+    && !(rawValues instanceof Map)
+    && typeof rawValues.values !== "function"
+      ? Object.entries(rawValues)
+        .filter(([, enabled]) => Boolean(enabled))
+        .map(([key]) => key)
+      : collectionValues(rawValues);
+  const values = traitValues
+    .map(value => localizedConfigLabel(configTable, value))
+    .filter(Boolean);
+  const custom = String(trait.custom ?? "")
+    .split(/[;,]/)
+    .map(value => value.trim())
+    .filter(Boolean);
+  const combined = [...new Set([...values, ...custom])];
+  return combined.length ? combined.join(", ") : "None";
+}
+
+function libraRangeData(range = {}) {
+  const units = String(range.units ?? "").toLowerCase();
+  const value = Number(range.value ?? range.reach);
+  const long = Number(range.long);
+  const finiteValue = Number.isFinite(value) && value > 0 ? value : null;
+  const finiteLong = Number.isFinite(long) && long > 0 ? long : null;
+  const maximum = finiteLong ?? finiteValue;
+  const unitLabels = {
+    ft: "ft.",
+    mi: "mi.",
+    m: "m",
+    km: "km",
+    touch: "touch",
+    self: "self",
+    spec: "special",
+    any: "any distance"
+  };
+  const labelUnits = unitLabels[units] ?? units;
+  let label = labelUnits || "Special";
+  if (finiteValue && finiteLong) label = `${finiteValue}/${finiteLong} ${labelUnits}`.trim();
+  else if (finiteValue) label = `${finiteValue} ${labelUnits}`.trim();
+
+  const feetMultiplier = {
+    ft: 1,
+    mi: 5280,
+    m: 3.28084,
+    km: 3280.84
+  }[units];
+  return {
+    label,
+    feet: maximum && feetMultiplier ? maximum * feetMultiplier : null
+  };
+}
+
+function libraAttackRanges(actor) {
+  const found = new Map();
+  const attackTypes = new Set(["mwak", "rwak", "msak", "rsak"]);
+  const add = (name, range) => {
+    const parsed = libraRangeData(range);
+    const label = String(name || "Unnamed Attack");
+    found.set(`${label}|${parsed.label}`, { name: label, ...parsed });
+  };
+
+  for (const item of actor.items) {
+    const activities = collectionValues(item.system.activities);
+    const attackActivities = activities.filter(activity =>
+      String(activity.type ?? activity.activityType ?? "").toLowerCase() === "attack"
+    );
+    for (const activity of attackActivities) {
+      add(
+        activity.name && activity.name !== item.name
+          ? `${item.name}: ${activity.name}`
+          : item.name,
+        activity.range ?? activity.system?.range ?? item.system.range
+      );
+    }
+    if (
+      !attackActivities.length
+      && attackTypes.has(String(item.system.actionType ?? "").toLowerCase())
+    ) {
+      add(item.name, item.system.range);
+    }
+  }
+
+  const attacks = [...found.values()].sort((a, b) =>
+    (b.feet ?? -1) - (a.feet ?? -1) || a.name.localeCompare(b.name)
+  );
+  const maximumFeet = Math.max(0, ...attacks.map(attack => attack.feet ?? 0));
+  const maximumLabel = maximumFeet >= 5280
+    ? `${Number((maximumFeet / 5280).toFixed(2))} mi.`
+    : maximumFeet > 0
+      ? `${Math.round(maximumFeet)} ft.`
+      : "No numeric attack range detected";
+  return { attacks, maximumLabel };
+}
+
+async function postLibraScan(sourceActor, targetActor, targetToken) {
+  const hp = targetActor.system.attributes?.hp ?? {};
+  const currentHP = Number.isFinite(Number(hp.value)) ? Number(hp.value) : "—";
+  const maxHP = Number.isFinite(Number(hp.max)) ? Number(hp.max) : "—";
+  const tempHP = Math.max(0, Number(hp.temp) || 0);
+  const armorClass = targetActor.system.attributes?.ac?.value ?? "—";
+  const vulnerabilities = libraTraitSummary(
+    targetActor,
+    "dv",
+    CONFIG.DND5E.damageTypes
+  );
+  const conditionImmunities = libraTraitSummary(
+    targetActor,
+    "ci",
+    CONFIG.DND5E.conditionTypes
+  );
+  const ranges = libraAttackRanges(targetActor);
+  const attackList = ranges.attacks.length
+    ? `<ul>${ranges.attacks.map(attack =>
+      `<li><strong>${esc(attack.name)}:</strong> ${esc(attack.label)}</li>`
+    ).join("")}</ul>`
+    : "<p><em>No attacks were detected on this actor.</em></p>";
+  const targetName = targetToken?.name ?? targetActor.name;
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+    flavor: "Libra",
+    content: `<div class="dnd5e chat-card soul-burn-libra-card">
+      <header class="card-header flexrow">
+        <img src="${esc(targetActor.img)}" title="${esc(targetName)}" width="36" height="36">
+        <h3>Libra: ${esc(targetName)}</h3>
+      </header>
+      <div class="card-content">
+        <p><strong>Current HP:</strong> ${currentHP} / ${maxHP}${tempHP ? ` (+${tempHP} temporary)` : ""}</p>
+        <p><strong>Armor Class:</strong> ${esc(armorClass)}</p>
+        <p><strong>Vulnerabilities:</strong> ${esc(vulnerabilities)}</p>
+        <p><strong>Condition Immunities:</strong> ${esc(conditionImmunities)}</p>
+        <p><strong>Maximum Attack Range:</strong> ${esc(ranges.maximumLabel)}</p>
+        <details>
+          <summary><strong>Checked Attacks (${ranges.attacks.length})</strong></summary>
+          ${attackList}
+        </details>
+      </div>
+    </div>`,
+    flags: {
+      [SB.moduleId]: {
+        libraResult: true,
+        sourceActorUuid: sourceActor.uuid,
+        targetActorUuid: targetActor.uuid
+      }
+    }
+  });
 }
 
 function scheduleSoulBurnDashboard(document) {
@@ -3226,6 +3427,32 @@ function interceptSoulBurnUse(document) {
   const actor = item?.actor
     ?? (item?.parent?.documentName === "Actor" ? item.parent : null);
   const action = normalizedSoulBurnAction(item);
+  if (
+    action === "libra"
+    && isTemporarySoulBurnAction(item)
+    && actor
+    && state(actor).active
+  ) {
+    const targets = [...game.user.targets];
+    if (targets.length !== 1) {
+      ui.notifications.warn("Libra requires exactly one targeted enemy.");
+      return false;
+    }
+    const target = targets[0];
+    if (
+      !target.actor
+      || target.actor.id === actor.id
+      || target.actor.type === "vehicle"
+    ) {
+      ui.notifications.warn("Libra must target a different, non-vehicle creature.");
+      return false;
+    }
+    if (actor.getFlag(SB.moduleId, "libraUsed")) {
+      ui.notifications.warn(`${actor.name} has already used Libra since their last long rest.`);
+      return false;
+    }
+    pendingLibraTargets.set(soulBurnItemUseKey(item), target.document.uuid);
+  }
   if (
     action === "fate"
     && isTemporarySoulBurnAction(item)
@@ -3507,7 +3734,7 @@ async function resolveNativeSoulBurnItemUse(document) {
   const action = normalizedSoulBurnAction(item);
   const resolutionKey = `${actor?.id ?? "none"}.${item?.id ?? action}`;
   if (
-    !["surge", "fate", "exit"].includes(action)
+    !["surge", "fate", "libra", "exit"].includes(action)
     || !isTemporarySoulBurnAction(item)
     || !actor
     || !state(actor).active
@@ -3523,6 +3750,24 @@ async function resolveNativeSoulBurnItemUse(document) {
     if (action === "fate") {
       // Fate Shift is delayed before native use; scheduleFateShiftItemUse owns
       // its confirmation, final Item card, and optional end-of-burn workflow.
+      return;
+    }
+    if (action === "libra") {
+      const key = soulBurnItemUseKey(item);
+      const targetUuid = pendingLibraTargets.get(key);
+      pendingLibraTargets.delete(key);
+      if (!targetUuid) return;
+      const targetDocument = await fromUuid(targetUuid);
+      const targetToken = targetDocument?.documentName === "Token"
+        ? targetDocument.object ?? canvas.tokens?.get(targetDocument.id)
+        : null;
+      const targetActor = targetDocument?.actor ?? targetToken?.actor ?? null;
+      if (!targetActor) {
+        ui.notifications.warn("Libra could not resolve the targeted creature.");
+        return;
+      }
+      await actor.setFlag(SB.moduleId, "libraUsed", true);
+      await postLibraScan(actor, targetActor, targetToken);
       return;
     }
 
@@ -3559,6 +3804,35 @@ async function resolveNativeSoulBurnItemUse(document) {
 
 Hooks.on("dnd5e.useItem", item => resolveNativeSoulBurnItemUse(item));
 Hooks.on("dnd5e.postUseActivity", activity => resolveNativeSoulBurnItemUse(activity));
+
+async function resetLibraAfterLongRest(actor) {
+  if (!actor || !actor.getFlag(SB.moduleId, "libraUsed")) return;
+  await actor.unsetFlag(SB.moduleId, "libraUsed");
+  const libraItems = actor.items.filter(item =>
+    normalizedSoulBurnAction(item) === "libra"
+  );
+  if (libraItems.length) {
+    await actor.updateEmbeddedDocuments(
+      "Item",
+      libraItems.map(item => ({
+        _id: item.id,
+        "system.uses.value": 1
+      })),
+      { soulBurnInternal: true }
+    );
+  }
+}
+
+Hooks.on("dnd5e.restCompleted", (actor, result = {}) => {
+  const isLongRest = Boolean(
+    result.longRest
+    || result.type === "long"
+    || result.type === "longRest"
+    || result.restType === "long"
+    || result.restType === "longRest"
+  );
+  if (isLongRest) void resetLibraAfterLongRest(actor);
+});
 
 Hooks.on("createItem", async (item, _options, userId) => {
   if (userId !== game.user.id) return;

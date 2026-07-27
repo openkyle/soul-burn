@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.44
+
+- Added **Libra**, a fifth temporary Soul Burn action copied from the module
+  compendium while Soul Burn is active.
+- Libra requires exactly one targeted, non-vehicle enemy and uses Foundry's
+  native 1/1 long-rest Item charge and recovery workflow.
+- A successful use posts the target's current HP, Armor Class, damage
+  vulnerabilities, condition immunities, and a maximum-range summary derived
+  from every legacy or activity-based attack on the target.
+
 ## 1.0.43
 
 - Added **Use TokenMagic FX** to the Visuals settings tab. It controls the

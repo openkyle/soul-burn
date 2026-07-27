@@ -461,6 +461,14 @@ If an enabled dependency is unavailable, Soul Burn reports the missing visual
 integration and continues its mechanics, token transformation, sound, and
 battlefield ripple.
 
+### Libra
+
+While Soul Burn is active, **Libra** appears alongside the other temporary
+actions. Target exactly one enemy and use Libra to publish its current HP, AC,
+damage vulnerabilities, condition immunities, and the ranges of every attack
+the target possesses. Libra is a native 1/1 dnd5e Item use that recovers on a
+long rest.
+
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,
 Sequencer, JB2A, TokenMagic, or a transformed image is unavailable, the
