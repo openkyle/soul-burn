@@ -1053,7 +1053,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
     data.system.actionType = "other";
     data.system.formula = "";
     data.system.description.value =
-      "<p>Declare an action that bends, breaks, or modifies the normal rules of the game. The GM must approve it. This cannot manifest infinite resources or simply wish an enemy dead.</p><p>The GM-configured Fate Shift timer or confirmation prompt resolves first. Soul Burn ends afterward only when the GM enables <strong>Automatically End Soul Burn on Fate Shift</strong>.</p>";
+      "<p>Declare an action that bends, breaks, or modifies the normal rules of the game. The GM must approve it. This cannot manifest infinite resources or simply wish an enemy dead.</p><p>Scholars have long collected exploits and chronicled it in the Book of Soul Burn.</p>";
     data.system.uses = {
       ...(data.system.uses ?? {}),
       prompt: true
@@ -2628,7 +2628,7 @@ async function showRules() {
       <h2>Channel Aether (1 Action or Reaction)</h2>
       <p>You may use Channel Aether a number of times equal to your proficiency bonus, regaining all uses on a short or long rest. Make an attack roll against one visible enemy. On a hit, deal Radiant damage equal to your Hit Die roll + your level. No Hit Die is consumed.</p>
       <h2>Fate Shift (1 Legendary Action)</h2>
-      <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. The GM-configured timer or confirmation prompt resolves before any ending animation. Soul Burn ends afterward only if the GM enables automatic ending for Fate Shift.</p>
+      <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. Scholars have long collected exploits and chronicled it in the Book of Soul Burn.</p>
       <h2>Libra (1 Action / Long Rest)</h2>
       <p>Target one enemy you can see to reveal its current hit points, Armor Class, Nether Index or Soul Burn stored in Resource 3, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses. You regain Libra after a long rest.</p>
     </div>`,
@@ -3052,7 +3052,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.47"
+    version: "1.0.48"
   });
 
   await cleanLegacyCompendiumIndex();

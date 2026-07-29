@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.48
+
+- Replaced Fate Shift's automation reminder text with the Book of Soul Burn
+  lore line in generated Items, the compendium Item, and the rules dialog.
+
 ## 1.0.47
 
 - Moved **Libra** directly after **Aether Surge** in the active Soul Burn
