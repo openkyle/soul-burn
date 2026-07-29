@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.45
+
+- Replaced the bundled Soul Burn and Exit Soul Burn artwork with the new
+  ascension icon.
+- Added the new bundled Libra icon and applied it to both the compendium Item
+  and temporary active-burn Item.
+
 ## 1.0.44
 
 - Added **Libra**, a fifth temporary Soul Burn action copied from the module

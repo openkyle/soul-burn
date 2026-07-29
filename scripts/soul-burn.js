@@ -1062,7 +1062,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
     const previousUses = Number(data.system.uses?.value);
     const usedSinceLongRest = Boolean(actor.getFlag(SB.moduleId, "libraUsed"));
     data.name = "Libra";
-    data.img = "icons/svg/eye.svg";
+    data.img = "modules/soul-burn/icons/libra.png";
     data.system.description.value =
       "<p>Read the balance of an enemy's body and defenses. Target one enemy you can see. Libra reveals its current hit points, Armor Class, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses.</p><p>You may use Libra once, regaining the use when you finish a long rest.</p>";
     data.system.activation = { type: "action", cost: 1, condition: "" };
@@ -3056,7 +3056,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.44"
+    version: "1.0.45"
   });
 
   await cleanLegacyCompendiumIndex();
