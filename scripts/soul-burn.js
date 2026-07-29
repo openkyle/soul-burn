@@ -12,7 +12,7 @@ const SB = {
   key: "soulBurn",
   effectName: "Soul Burn",
   pack: "soul-burn.soul-burn-features",
-  temporaryActions: ["surge", "channel", "fate", "libra", "exit"],
+  temporaryActions: ["surge", "libra", "channel", "fate", "exit"],
   transformedTokenRoot:
     "https://assets.forge-vtt.com/62bf9a2b7fa42ce7966f6738/STARPG/CharTokens/AstrumKnights",
   defaultPowerUpSound: "modules/soul-burn/sounds/AetherUp3.ogg",
@@ -1064,7 +1064,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
     data.name = "Libra";
     data.img = "modules/soul-burn/icons/libra.png";
     data.system.description.value =
-      "<p>Read the balance of an enemy's body and defenses. Target one enemy you can see. Libra reveals its current hit points, Armor Class, Nether Index or Soul Burn stored in Resource 3, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses.</p><p>You may use Libra once, regaining the use when you finish a long rest.</p>";
+      "<p>Read the balance of an enemy's body and defenses. Target one enemy you can see. Libra reveals its current Hit Points, Armor Class, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses.</p><p>You may use Libra once, regaining the use when you finish a long rest.</p>";
     data.system.activation = { type: "action", cost: 1, condition: "" };
     data.system.target = { value: 1, width: null, units: "", type: "creature" };
     data.system.range = { value: null, long: null, units: "spec" };
@@ -2024,11 +2024,6 @@ async function activate(actor, token) {
   const progression = highStakesProgression(current);
   const diceCount = progression.dice;
   const activationFormula = `${diceCount}d${chosen.faces}`;
-  const progressionAdjustment = aetherglowProgressionReductionEnabled()
-    ? `<p><strong>AetherGlow Die Reduction:</strong> ${progression.reduction} step${progression.reduction === 1 ? "" : "s"}.
-       Normal Uses-based progression: ${progression.normal} dice; adjusted roll: <strong>${progression.dice} dice</strong>.
-       Lifetime Uses will still increase normally.</p>`
-    : "";
   const chance = burnoutChance(chosen.faces, max - current.burn, diceCount);
   const confirmed = await choose(
     "Confirm Soul Burn",
@@ -2094,14 +2089,15 @@ async function activate(actor, token) {
     actor,
     "Soul Burn",
     `<p><strong>${esc(actor.name)}</strong> gains double movement and one Soul Burn action each turn for <strong>${durationRounds}</strong> rounds.</p>
-     <p><strong>Soul Burn Roll:</strong> ${activationFormula} = ${roll.total}${diceCount > 1 ? " — High Stakes Mode" : ""}</p>
-     ${progressionAdjustment}
-     ${diceCount > 1 ? `<p><strong>Duration Die:</strong> The first d${chosen.faces} rolled ${durationRounds}; only that die determines the duration.</p>` : ""}
+     ${diceCount > 1 ? "<p><strong>High Stakes Mode</strong></p>" : ""}
+     <p>Soul Burn Roll: <strong>${activationFormula} = ${roll.total}</strong></p>
+     ${aetherglowProgressionReductionEnabled() ? `<p>AGDR: <strong>-${progression.reduction}</strong></p>` : ""}
+     <p>Duration: ${diceCount > 1 ? `The first d${chosen.faces} rolled ${durationRounds}; soul burn is active for ${durationRounds} rounds.` : `Soul burn is active for ${durationRounds} rounds.`}</p>
      <p>Soul Burn: <strong>${next.burn} / ${max}</strong>${next.burnout ? " — <strong>Burnout pending</strong>" : ""}</p>
-     <p><strong>Movement:</strong> ${esc(movementSummary(baseMovement))} → <strong>${esc(movementSummary(baseMovement, 2))}</strong></p>
+     <p>Movement: ${esc(movementSummary(baseMovement))} → <strong>${esc(movementSummary(baseMovement, 2))}</strong></p>
      ${trackCombat
-       ? `<p><strong>Combat:</strong> Activated in round ${combatRound}. The transformation ends when round ${next.endsRound} begins.</p>`
-       : "<p><strong>Combat:</strong> No active combat round was found; duration is tracked manually.</p>"}`,
+       ? `<p>Combat: Activated in round ${combatRound}. The transformation ends when round ${next.endsRound} begins.</p>`
+       : "<p>Combat: No active combat round was found; duration is tracked manually.</p>"}`,
     roll
   );
 }
@@ -3056,7 +3052,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.46"
+    version: "1.0.47"
   });
 
   await cleanLegacyCompendiumIndex();

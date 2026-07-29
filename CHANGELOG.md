@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.47
+
+- Moved **Libra** directly after **Aether Surge** in the active Soul Burn
+  inventory order and compendium pack order.
+- Simplified Libra's player-facing description and tightened the Soul Burn
+  activation chat card wording.
+
 ## 1.0.46
 
 - Libra now reads the target's tertiary sheet resource and reports it when it
