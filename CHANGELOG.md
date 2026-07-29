@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.46
+
+- Libra now reads the target's tertiary sheet resource and reports it when it
+  is labeled **Nether Index** or **Soul Burn**.
+
 ## 1.0.45
 
 - Replaced the bundled Soul Burn and Exit Soul Burn artwork with the new

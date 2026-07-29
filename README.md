@@ -465,9 +465,10 @@ battlefield ripple.
 
 While Soul Burn is active, **Libra** appears alongside the other temporary
 actions. Target exactly one enemy and use Libra to publish its current HP, AC,
-damage vulnerabilities, condition immunities, and the ranges of every attack
-the target possesses. Libra is a native 1/1 dnd5e Item use that recovers on a
-long rest.
+Nether Index or Soul Burn from the target's tertiary resource, damage
+vulnerabilities, condition immunities, and the ranges of every attack the
+target possesses. Libra is a native 1/1 dnd5e Item use that recovers on a long
+rest.
 
 The ripple defaults to 10% additional contrast, 100% desaturation, and a
 60-second return to normal. Animation calls are guarded. If the canvas,

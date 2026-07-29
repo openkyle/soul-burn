@@ -1064,7 +1064,7 @@ function configureRegularSoulBurnItem(data, action, actor) {
     data.name = "Libra";
     data.img = "modules/soul-burn/icons/libra.png";
     data.system.description.value =
-      "<p>Read the balance of an enemy's body and defenses. Target one enemy you can see. Libra reveals its current hit points, Armor Class, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses.</p><p>You may use Libra once, regaining the use when you finish a long rest.</p>";
+      "<p>Read the balance of an enemy's body and defenses. Target one enemy you can see. Libra reveals its current hit points, Armor Class, Nether Index or Soul Burn stored in Resource 3, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses.</p><p>You may use Libra once, regaining the use when you finish a long rest.</p>";
     data.system.activation = { type: "action", cost: 1, condition: "" };
     data.system.target = { value: 1, width: null, units: "", type: "creature" };
     data.system.range = { value: null, long: null, units: "spec" };
@@ -2634,7 +2634,7 @@ async function showRules() {
       <h2>Fate Shift (1 Legendary Action)</h2>
       <p>Declare a rule bend, break, or modification for GM approval. It is not permission to create infinite resources or simply wish an enemy dead. The GM-configured timer or confirmation prompt resolves before any ending animation. Soul Burn ends afterward only if the GM enables automatic ending for Fate Shift.</p>
       <h2>Libra (1 Action / Long Rest)</h2>
-      <p>Target one enemy you can see to reveal its current hit points, Armor Class, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses. You regain Libra after a long rest.</p>
+      <p>Target one enemy you can see to reveal its current hit points, Armor Class, Nether Index or Soul Burn stored in Resource 3, damage vulnerabilities, condition immunities, and the ranges of all attacks it possesses. You regain Libra after a long rest.</p>
     </div>`,
     buttons: { close: { icon: '<i class="fas fa-times"></i>', label: "Close" } },
     default: "close"
@@ -3056,7 +3056,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.45"
+    version: "1.0.46"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -3354,6 +3354,22 @@ function libraAttackRanges(actor) {
   return { attacks, maximumLabel };
 }
 
+function libraTertiaryResource(actor) {
+  const resource = actor.system.resources?.tertiary;
+  const label = String(resource?.label ?? "").trim();
+  if (!["nether index", "soul burn"].includes(label.toLowerCase())) return null;
+  const numericValue = Number(resource.value);
+  const numericMaximum = Number(resource.max);
+  const value = Number.isFinite(numericValue) ? numericValue : "—";
+  const maximum = Number.isFinite(numericMaximum) && numericMaximum > 0
+    ? numericMaximum
+    : null;
+  return {
+    label,
+    display: maximum === null ? String(value) : `${value} / ${maximum}`
+  };
+}
+
 async function postLibraScan(sourceActor, targetActor, targetToken) {
   const hp = targetActor.system.attributes?.hp ?? {};
   const currentHP = Number.isFinite(Number(hp.value)) ? Number(hp.value) : "—";
@@ -3370,6 +3386,10 @@ async function postLibraScan(sourceActor, targetActor, targetToken) {
     "ci",
     CONFIG.DND5E.conditionTypes
   );
+  const tertiaryResource = libraTertiaryResource(targetActor);
+  const tertiaryResourceLine = tertiaryResource
+    ? `<p><strong>${esc(tertiaryResource.label)}:</strong> ${esc(tertiaryResource.display)}</p>`
+    : "";
   const ranges = libraAttackRanges(targetActor);
   const attackList = ranges.attacks.length
     ? `<ul>${ranges.attacks.map(attack =>
@@ -3388,6 +3408,7 @@ async function postLibraScan(sourceActor, targetActor, targetToken) {
       <div class="card-content">
         <p><strong>Current HP:</strong> ${currentHP} / ${maxHP}${tempHP ? ` (+${tempHP} temporary)` : ""}</p>
         <p><strong>Armor Class:</strong> ${esc(armorClass)}</p>
+        ${tertiaryResourceLine}
         <p><strong>Vulnerabilities:</strong> ${esc(vulnerabilities)}</p>
         <p><strong>Condition Immunities:</strong> ${esc(conditionImmunities)}</p>
         <p><strong>Maximum Attack Range:</strong> ${esc(ranges.maximumLabel)}</p>
