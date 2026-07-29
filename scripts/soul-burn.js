@@ -3052,7 +3052,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.48"
+    version: "1.0.49"
   });
 
   await cleanLegacyCompendiumIndex();

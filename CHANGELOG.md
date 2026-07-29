@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.49
+
+- Rewrote the GitHub README as a full module guide with a stronger Soul Burn
+  pitch, player-facing limit-break framing, move explanations, setup steps,
+  GM settings guidance, and an expanded FAQ.
+- Updated the manifest description to better communicate Soul Burn as an
+  exciting Aether-powered player transformation system.
+
 ## 1.0.48
 
 - Replaced Fate Shift's automation reminder text with the Book of Soul Burn

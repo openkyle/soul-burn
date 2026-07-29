@@ -1,243 +1,111 @@
 # Soul Burn for Foundry VTT
 
-A player-facing Foundry VTT macro for the **Soul Burn** homebrew system. It
-manages the character-sheet resource, Hit Dice, Burnout risk, movement, actions,
-AetherGlow tolerance, token transformation, and chat output in one interface.
+**Soul Burn** is a Foundry VTT module for giving your players a dramatic
+limit-break style power: a moment where a character draws on Aether, pushes
+past mortal limits, doubles their movement, and gains a temporary suite of
+reality-bending actions.
 
-The macro is designed for both workflows:
+It is designed to feel exciting at the table without becoming bookkeeping
+homework for the GM. Players get the fantasy of "I am going beyond myself
+right now." The module handles the resource, Hit Dice, movement, temporary
+actions, AetherGlow recovery, token transformation, chat cards, Burnout risk,
+and cleanup.
 
-- A player runs it from their hotbar or character sheet.
-- A GM selects a player-owned token and runs the same macro for that character.
+Soul Burn works especially well in heroic fantasy, science-fantasy, anime-
+inspired campaigns, boss fights, desperate rescues, divine awakenings, and
+any table that wants a dangerous player-controlled power spike with real
+consequences.
 
-## Soul Burn rules
+## The Table Fantasy
 
-Soul Burn is a Bonus Action reservoir granted through interaction with Aether.
-Entering Soul Burn requires at least one available Hit Die. The chosen die is
-rolled to determine the Soul Burn increase and round duration, but it is not
-expended. Hit Dice are expended afterward by Aether Surge.
+Soul Burn is not just another feature button. It is a pressure valve.
 
-While Soul Burn is active, the character receives:
+A player can choose to flare with Aether and become faster, brighter, and more
+dangerous for a limited number of rounds. While transformed, they gain access
+to special Soul Burn actions such as Aether Surge, Channel Aether, Libra, and
+Fate Shift. The longer a character keeps drawing on that power, the more their
+Soul Burn resource builds. If it ever exceeds their maximum, Burnout waits at
+the end of the transformation.
 
-- Double movement.
-- One free Soul Burn action each turn.
-- Access to Aether Surge, Channel Aether, and Fate Shift.
-- A collapsible **Soul Burn** Item section containing the three attacks and an
-  Exit Soul Burn Item above Weapons on Tidy5e's Inventory tab while transformed.
+That gives players a delicious decision:
 
-### Maximum and Burnout
+- Do I spend this power now?
+- Do I risk another surge?
+- Do I end early to recover a little Soul Burn?
+- Do I drink AetherGlow to stabilize myself?
+- Do I bend the rules with Fate Shift and trust the GM to adjudicate it?
 
-Maximum Soul Burn is the sum of the maximum results of all class Hit Dice.
+It is a limit break with teeth.
 
-For example, a level 10 Barbarian has ten d12 Hit Dice and a maximum Soul Burn
-of 120.
+## What The Module Does
 
-The macro treats the character sheet's **tertiary resource maximum** as
-authoritative when it is configured. If it is blank or zero, the macro
-calculates and fills it from the character's classes.
+- Opens a custom Soul Burn dashboard from the character sheet or world macro.
+- Requires an available Hit Die to enter Soul Burn, but does not spend it on
+  entry.
+- Rolls the chosen Hit Die to determine duration and Soul Burn gained.
+- Doubles all current movement modes, including walk, fly, swim, climb, and
+  burrow.
+- Adds a temporary **Soul Burn** inventory section above Weapons while active.
+- Adds usable temporary Items for Aether Surge, Libra, Channel Aether, Fate
+  Shift, and Exit Soul Burn.
+- Tracks Soul Burn, lifetime uses, AG Tolerance, AGDR, active combat round,
+  pending Burnout, and original token images.
+- Restores movement, token image, visual effects, and temporary Items when Soul
+  Burn ends.
+- Supports AetherGlow as a healing and Soul Burn recovery tool.
+- Provides GM settings for sounds, visual ripple, mechanics, Fate Shift flow,
+  Constitution save requests, exhaustion, and High Stakes Mode.
+- Includes a compendium pack with the Soul Burn Items and Holy Amulet of Lux
+  Eterna.
 
-If current Soul Burn exceeds that maximum, Burnout is marked as pending. The
-soul is destroyed at the end of the current burn period. For safety, the macro
-announces this result but never deletes the Actor. The final chat card is titled
-with the character's name and selects one of ten character-specific Burnout
-finales at random.
+## Compatibility
 
-### Aether Surge
+Primary tested baseline:
 
-After an attack hits, spend and roll one available class Hit Die. Apply the
-result to either:
+- Foundry VTT 11 Stable, build 315
+- dnd5e 2.4.1
 
-- The attack roll; or
-- The damage roll as Radiant damage.
+The manifest is also marked for Foundry VTT 12 and 13, with guarded API usage
+where possible.
 
-Using the temporary Item makes its ordinary dnd5e roll and expends the largest
-available class Hit Die. The player applies the result to either the attack or
-damage roll described by the feature.
+Recommended modules:
 
-Aether Surge is explicitly self-targeting. It never applies an Item result to
-a selected battlefield target, and it leaves the player's target selection
-intact for the triggering attack.
+- [Tidy5e Sheet](https://foundryvtt.com/packages/tidy5e-sheet), for the active
+  Soul Burn inventory section.
+- [Sequencer](https://foundryvtt.com/packages/sequencer), for transformation
+  animation playback.
+- JB2A Patreon or JB2A D&D5e, for the Sacred Flame style power-up animation.
+- TokenMagic FX, for the persistent animated token fire filter.
 
-### Channel Aether
-
-Channel Aether has a number of uses equal to the character's proficiency bonus.
-Spend one use to make a radiant attack against a visible enemy. On a hit,
-damage equals one Hit Die plus the character's total level. This does not
-consume a Hit Die. All uses return on a short or long rest.
-
-The temporary Item uses the character's normal spellcasting attack and rolls:
-
-```text
-Attack: 1d20 + spellcasting ability modifier + proficiency
-Damage: largest class Hit Die + total character level
-```
-
-The native dnd5e Item tracks its own proficiency-based uses. Soul Burn does not
-store a separate Channel-used flag and provides no reset control.
-
-### Temporary Soul Burn Item section
-
-When a character enters Soul Burn, the module copies Aether Surge, Channel
-Aether, and Fate Shift from **Soul Burn Features** onto that Actor as managed
-temporary Items. It also creates a managed **Exit Soul Burn** Item from the
-permanent Soul Burn feature. Tidy5e Sheet shows all four as regular usable rows
-in a collapsible **Soul Burn** section above Weapons on the Inventory tab.
-
-The Item name and dice icon both perform the same native dnd5e Item use. The
-information icon opens the locked Item sheet for details. Native Item use
-handles attack rolls, Channel Aether charges, and other system consumption;
-module hooks handle Aether Surge's Hit Die and the Fate Shift/Exit ending
-workflows.
-
-Channel Aether uses dnd5e's native attack and damage workflow. It has a number
-of uses equal to the actor's proficiency bonus and refreshes on a short or long
-rest; the module does not add a second chat-card button or ability-selection
-dialog. Aether Surge expends one real class Hit Die after each successful native
-Item use, and its Inventory row shows the actor's remaining and maximum Hit
-Dice.
-
-Clicking an Item name expands an inline Tidy-style detail panel with its
-requirements, range, and description. Only the dice icon uses the Item. The
-information icon opens the complete locked Item sheet.
-
-The four managed copies are hidden from duplicate Actions and Features
-listings. When Soul Burn ends—through Exit Soul Burn, combat expiry, or Fate
-Shift when its optional auto-end setting is enabled—the module deletes only
-those managed copies and the Inventory section disappears. The permanent Soul
-Burn feature remains in Features.
-
-The owned **Soul Burn** feature is locked against player editing and deletion;
-GMs can still edit it. While active, its sheet name and chat-card control become
-**Exit Soul Burn**. Both return to **Soul Burn** / **Enter Soul Burn** when the
-transformation ends.
-
-**Exit Soul Burn** immediately resolves the normal end workflow, including
-Burnout and any configured Constitution saving throw request. If the character exits during
-the same combat in which the burn began, each wholly unused future round in
-the duration removes 1 point from the character's Soul Burn resource. The
-current round is already in use and is not counted. The reduction is clamped
-at zero. Ending Soul Burn outside combat—or after its tracked combat is no
-longer active—does not reduce the resource.
-
-When Soul Burn ends, the exact pre-transformation token image recorded at
-activation is restored. Restoration resolves the recorded TokenDocument UUID,
-so it also works if the GM is viewing another scene when the burn ends.
-
-### Fate Shift
-
-The GM chooses between two Fate Shift gates under Mechanics:
-
-- The original real-time countdown and animated progress bar.
-- A descriptive prompt with a player-controlled **Fate Shift** button.
-
-Neither mode immediately creates or rolls the dnd5e chat card. The module
-releases exactly one native Item use, consumes its charge, and places the card
-in chat only after the timer reaches zero or the player presses the
-confirmation button. The GM controls the countdown length and shared message;
-`{seconds}` supplies the live remaining time in countdown mode.
-**Automatically End Soul Burn on Fate Shift** is disabled by default. When
-enabled, the normal ending workflow begins after the chosen gate and Item use
-complete. Wholly unused future combat rounds are captured and deducted from
-current Soul Burn during that ending. When disabled, Fate Shift leaves Soul
-Burn active.
-
-### AetherGlow and AGT
-
-The administering character rolls:
-
-```text
-max(1, 1d20 - AGT)
-```
-
-AGT cannot exceed 19, and the final result cannot be less than 1. AetherGlow
-therefore always restores at least 1 HP and provides at least 1 point of Soul
-Burn recovery. Actual Soul Burn cleared cannot exceed the recipient's current
-Soul Burn. The chat card shows the clamped formula, result, actual Soul Burn
-cleared, resource values, and AGT change. There is no “AetherGlow Blocked”
-value.
-
-The optional High-Stakes setting **AetherGlow Reduces Soul Burn Die** is
-disabled by default. When enabled, each AetherGlow exposure received by a
-Soul Burn character lowers their future Uses-based activation progression by
-one die, to a minimum of one. This is stored independently from Lifetime Uses:
-AetherGlow never restores or removes a Use, and each later Soul Burn activation
-still increases Uses normally. For example, after three activations the next
-roll would normally be four dice; one reduction step makes it three dice.
-
-## Compatibility and requirements
-
-- Primary baseline: **Foundry VTT 11 Stable, build 315**
-- Primary baseline: **dnd5e 2.4.1**
-- Forward-compatible manifest and guarded APIs for Foundry VTT 12 and 13
-- An Actor with dnd5e class items and Hit Dice
-- The Actor's third resource configured as **Soul Burn**
-
-Three audio effects are bundled with the module:
-
-- `AetherUp3.ogg` plays when Soul Burn activates.
-- `AetherGlow.ogg` plays when AetherGlow is consumed.
-- `RagePowerDown.ogg` plays when Soul Burn ends and the token transforms back.
-
-The GM can change any sound under **Configure Settings → Module Settings →
-Soul Burn Settings**. The settings panel includes Browse, Preview, and Restore
-Bundled Sound controls plus independent 0–100% volume levels for Power-Up,
-Ending, and AetherGlow playback. Preview uses the currently entered volume, and
-shared in-game playback uses the saved level. The panel also configures the synchronized battlefield
-ripple's contrast increase, desaturation, and real-time recovery duration. The
-Visuals tab also provides a **Delay** in seconds after the early ripple cue;
-its default is 1. The panel is organized into **Sounds**, **Visuals**, and
-**Mechanics** tabs.
-
-Mechanics can request a Constitution saving throw when Soul Burn ends. The
-owning player rolls it from the resulting chat card; the module never rolls it
-automatically. **Apply Exhaustion on Failed Save** automatically enables the
-request and adds one dnd5e exhaustion level after a failure, to a maximum of 6.
-
-The mechanics work without animation modules. These optional modules preserve
-the supplied transformation:
-
-- [Sequencer](https://foundryvtt.com/packages/sequencer)
-- JB2A Patreon, using the Sacred Flame asset path in the macro
-- TokenMagic FX
-
-Transformed token images currently use campaign-specific Forge asset URLs.
-Configure the constant at the top of
-[`scripts/soul-burn.js`](./scripts/soul-burn.js) if those assets move.
+The mechanics still work without the animation modules. Missing visual
+dependencies are reported, but Soul Burn still activates, tracks resources, and
+cleans itself up.
 
 ## Installation
 
 1. Open Foundry's **Add-on Modules** tab.
 2. Click **Install Module**.
-3. Paste the manifest URL from the latest GitHub release.
-4. Enable **Soul Burn** in the world and reload once.
-5. The module creates a player-visible **Soul Burn** world macro as an optional
-   hotbar launcher.
-6. Ensure each player owns their Actor and has that Actor assigned as their
-   user character.
-7. On the character sheet, set the tertiary resource label to `Soul Burn`.
-   Set its current value to `0` and its maximum to the intended maximum.
-
-## Compendiums
-
-The module includes one compendium pack:
-
-- **Soul Burn Features** contains Soul Burn, Aether Surge, Channel Aether,
-  Fate Shift, and the Holy Amulet of Lux Eterna. Drag these onto a player
-  character sheet.
-  Each feature includes a button that runs its module-managed action for the
-  owning Actor.
-
-In Foundry V11, open the **Compendium Packs** sidebar, expand the **Soul Burn**
-package section, and open **Soul Burn Features**. The GM can drag features
-directly onto character sheets.
-
-No journal named `H4H` or `SoulBurn` is required. Persistent per-character
-metadata is stored in:
+3. Paste the latest manifest URL:
 
 ```text
-flags.world.soulBurn
+https://github.com/openkyle/soul-burn/releases/latest/download/module.json
 ```
 
-The Soul Burn total itself remains visible and editable on the sheet at:
+4. Enable **Soul Burn** in your world.
+5. Reload Foundry once.
+6. Open **Compendium Packs -> Soul Burn -> Soul Burn Features**.
+7. Drag **Soul Burn** onto any player character who should have access.
+
+The module also creates a player-visible **Soul Burn** world macro as an
+optional hotbar launcher.
+
+## Giving Soul Burn To A Player
+
+Drag the **Soul Burn** feature from the **Soul Burn Features** compendium onto a
+character sheet.
+
+When the feature is added, the module prepares the character's tertiary
+resource for Soul Burn. The resource is stored at:
 
 ```text
 system.resources.tertiary.value
@@ -245,254 +113,428 @@ system.resources.tertiary.max
 system.resources.tertiary.label
 ```
 
-Dropping the Soul Burn feature onto a character automatically labels the
-tertiary resource `Soul Burn` and calculates its maximum when blank. Characters
-who already had the feature are repaired the next time a GM loads the world.
-Clicking the feature opens the Luminara dashboard directly and does not post an
-initial dnd5e Item card. Cancelling leaves chat unchanged. Completing activation
-posts one button-free Soul Burn result card with the Hit Die roll, duration,
-movement, Soul Burn total, and combat-round details.
+The label is set to `Soul Burn`, the current value starts at `0`, and the
+maximum is calculated from the character's class Hit Dice when blank.
 
-The interaction is stopped at Tidy5e's cancellable pre-use hook before
-`Item#use` executes. dnd5e display and message-creation hooks remain as
-fallbacks. Actor state uses `flags.world.soulBurn`; module Item metadata uses
-`flags.soul-burn`, and these namespaces are intentionally separate.
+Maximum Soul Burn is the sum of the maximum values of all class Hit Dice. For
+example, a level 10 Barbarian with ten d12 Hit Dice has a maximum Soul Burn of
+120.
 
-### Holy Amulet of Lux Eterna
+If a player no longer has active Soul Burn and their current Soul Burn is 0, GM
+management tools can clear the tertiary resource back to blank.
 
-The compendium's Legendary **Holy Amulet of Lux Eterna** equipment is the only
-AetherGlow trigger; there is no separate AetherGlow macro. It is a 1 lb.
-trinket worth 230 gp with six limited charges. Its chat-card button asks which
-player character or active-scene NPC receives the AetherGlow. Vehicles are
-excluded.
+## Core Play Flow
 
-- The administrator makes the `1d20` roll; the recipient does not roll.
-- Every recipient heals from that administration roll.
-- A recipient with `Soul Burn` as the tertiary resource also releases Soul
-  Burn using that roll after AGT.
-- A recipient without that resource is still healed, and their unrelated
-  tertiary resource is never renamed or changed.
-- The amulet removes charmed, poisoned, petrified, temporary ability-score
-  reductions, and temporary maximum-HP reductions.
-- Every exposure raises AGT by 1, to a maximum of 19.
-- When the optional High-Stakes AetherGlow reduction setting is enabled, every
-  qualifying exposure also lowers the recipient's future activation
-  progression by one die without changing Lifetime Uses.
-- If a player gives it to an Actor they do not own, an active GM securely
-  performs the document update.
-- Direct activation spends a charge. A normal dnd5e item use spends its charge
-  when it posts the card, and that chat-card button is locked after resolution.
-- The actionable AetherGlow chat-card button is generated from module Item
-  flags, not stored in editable rich-text descriptions. Its description may
-  therefore be edited without turning that control into text or removing its
-  behavior.
+1. The player clicks **Soul Burn** on their character sheet or macro hotbar.
+2. The custom Soul Burn dashboard opens first.
+3. The player chooses to activate Soul Burn.
+4. The module confirms the roll and Burnout odds.
+5. The player rolls the chosen Hit Die.
+6. Soul Burn begins.
+7. The activation chat card posts the duration, Soul Burn gained, movement
+   change, and combat tracking.
+8. The character gains the temporary Soul Burn inventory section.
+9. The player uses Soul Burn actions directly from the Inventory tab.
+10. Soul Burn ends by expiry, Exit Soul Burn, GM management, or optional Fate
+    Shift automation.
 
-### GM player management
+The initial Soul Burn click is never supposed to create a normal dnd5e chat
+card first. The menu is the entry point. The chat card appears only after
+activation succeeds.
 
-Under **Configure Settings → Module Settings → Soul Burn Players**, the GM can
-review and edit player Soul Burn, lifetime uses, and AGT. Active entries also
-show their individually tracked combat rounds. The screen includes per-player
-and party-wide AGT resets. Each row also includes a character-specific
-transformation-image editor. It automatically displays the current token or
-prototype-token image and provides a Foundry browser for the Soul Burn image.
+## Soul Burn While Active
 
-The per-character **Clear AGT** control resets AGT and blanks the tertiary Soul
-Burn resource for an inactive character. It preserves lifetime Uses and the
-configured transformation image. Starting Soul Burn again restores the resource
-only after the player confirms activation.
+While Soul Burning, a character gains:
 
-Saving an inactive character at **0 Soul Burn** also removes that tertiary
-resource from their sheet. **Save Changes** closes Player Management after the
-update. If either clear path is used during an active burn, the module first
-runs the complete normal ending workflow—including Burnout resolution, visual
-and movement restoration, end sound, chat output, and the configured
-Constitution saving throw request—then removes the resource.
+- Double movement.
+- One free Soul Burn action each turn.
+- Temporary access to Aether Surge, Libra, Channel Aether, Fate Shift, and Exit
+  Soul Burn.
 
-### Combat duration and ending
+With Tidy5e Sheet, these appear as regular usable Items in a collapsible **Soul
+Burn** section above Weapons on the Inventory tab. The Item images act like the
+roll buttons. Item details can be expanded in the same general style as Tidy5e
+inventory rows.
 
-When Soul Burn activates during a started Combat encounter, the module stores
-the Combat ID, activation round, and that character's rolled duration. A
-duration of `N` rounds that begins in round `R` remains active through round
-`R + N - 1`; the primary active GM client restores the transformation when
-round `R + N` begins.
+When Soul Burn ends, the temporary Items are removed and the section disappears.
+The permanent Soul Burn feature remains on the character sheet.
 
-At activation, the module reads the character's current walk, fly, swim, climb,
-and burrow speeds. Every nonzero speed is doubled through a managed
-multiplicative Active Effect, so the doubled values appear on the character
-sheet. The Actor's underlying values are not permanently overwritten. Removing
-the effect restores the current base speeds automatically, and both activation
-and ending cards report the movement values.
+## Soul Burn Moves
 
-The activation card logs the starting and expiry rounds. Automatic expiry:
+### Aether Surge
 
-- Removes the managed movement effect and TokenMagic fire.
-- Restores the original token image.
-- Plays the configured ending sound.
-- Posts a transformation-ending chat card.
-- Resolves pending Burnout messaging.
-- Optionally posts a player-owned Constitution saving throw request against the
-  GM-configured DC.
-- Optionally applies one exhaustion level when that submitted save fails.
-- With **Escalating Constitution Save DC** enabled, the first lifetime use
-  saves against the configured base DC and each later use adds 2. A failed
-  escalating save automatically adds one exhaustion level.
+**Aether Surge** is the direct power spike.
 
-Configure the ending sound and optional Constitution save under **Configure
-Settings → Module Settings → Soul Burn Settings**. The ending-sound field uses
-Foundry's audio browser and includes Preview and Restore Bundled Sound buttons.
+After an attack hits, the player spends and rolls one available class Hit Die.
+They add the result to either the attack roll or the damage roll, but not both.
+Added damage is Radiant.
 
-That screen also includes optional **High Stakes Mode**. When enabled, the
-first lifetime Soul Burn use rolls `1` chosen Hit Die, the second rolls `2`,
-the third rolls `3`, and so on. The summed result increases Soul Burn, while
-only the first die determines the combat duration. Entry still requires an
-available Hit Die without expending it. The dashboard and confirmation show
-the multi-die formula and its exact Burnout odds.
+The module expends a real class Hit Die when Aether Surge is used. The active
+Inventory row shows remaining Hit Dice.
 
-The dependent **AetherGlow Reduces Soul Burn Die** setting creates a persistent
-push-and-pull against that progression. Its effective formula is:
-
-```text
-next dice = max(1, Lifetime Uses + 1 - AetherGlow reduction steps)
-```
-
-The reduction counter is separate from Lifetime Uses. Consuming AetherGlow
-does not alter Uses; later Soul Burn activations still increment Uses normally.
-The main Soul Burn dialog displays this compactly as **AG Die Reduction: X**,
-and Player Uses abbreviates it as **AGDR: X**.
-
-The Visuals tab also has independent **Show AGT in Inventory Bar** and **Show
-Rounds Remaining in Inventory Bar** options. Both default to enabled.
-The compact `AGT: X` display includes an information shortcut that opens Soul
-Burn Player Uses.
-
-Ending Soul Burn early refunds 1 Soul Burn point for each wholly unused future
-combat round. The current, partially used round is not refunded.
-
-## Interface
-
-The primary dialog intentionally follows the original campaign interface:
-
-- Character name and Hit Die
-- `Soul Burn: current / maximum`
-- Use count and live Burnout odds
-- A gold progress meter that fills left-to-right as Soul Burn approaches its
-  maximum
-- **Player Uses** for the campaign roster and AGT
-- **More Info** for the complete rules
-- **SOUL BURN** with a separate risk-confirmation dialog
-
-Only one primary Soul Burn dialog can be open per Actor on a client. If
-multiple Foundry or Tidy5e hooks report the same click, the existing dialog is
-focused instead of creating another instance.
-
-When the character is actively Soul Burning, the dialog retains Player Uses
-and More Info, then presents one full-width **End Soul Burn** button. The three
-combat Items also remain together above Weapons on the Inventory tab.
-
-## Token and Actor resolution
-
-The macro uses this order:
-
-1. One controlled token.
-2. The executing user's assigned character.
-3. That character's only active token.
-4. A token chooser if the character has multiple active tokens.
-5. Actor-only operation if the assigned character has no token on the scene.
-
-Non-GM users cannot run the macro against an Actor they do not own.
-
-## Persistent state
-
-Soul Burn metadata is stored on each Actor instead of in a shared journal. This
-avoids journal permission failures and character-name parsing bugs.
-
-Stored metadata includes:
-
-- Total lifetime uses
-- High-Stakes AetherGlow die-reduction steps
-- AGT
-- Active/inactive state
-- Pending Burnout
-- Combat start/end rounds
-- Original token image paths for restoration
-
-## Animation behavior
-
-Activation preserves the supplied sequence:
-
-1. Play `AetherUp3.ogg`.
-2. Wait 700 ms.
-3. Start the yellow JB2A Sacred Flame explosion for 5.4 seconds at 2× scale.
-4. Cue the remaining transformation 3 seconds before that animation's nominal
-   endpoint.
-5. Swap the token to the campaign-specific transformed image.
-6. Apply the animated white TokenMagic fire filter to the final transformed
-   token mesh.
-7. Wait for the GM-configured ripple **Delay** after the early cue. The default
-   is 1 second.
-8. Send the live grayscale refractive ripple outward from the transformed token
-   for all clients viewing the scene. Each client resolves the token through
-   its own camera transform so the origin remains correct at different pans and
-   zoom levels.
-9. Leave the battlefield at the configured contrast and desaturation, then
-   fade it back to its original grading over the configured real-time duration.
-
-The ripple uses one fixed, full-canvas backdrop-filter layer revealed by an
-expanding `clip-path`. A stable alpha-shaped cutout matching the activating
-token exposes that live token and its TokenMagic effects in color while the
-rest of the battlefield is graded. The cutout is recalculated only when the
-camera or affected Token moves; it is not rewritten by the recovery timer.
-
-The module does not copy or read back the WebGL canvas, create a second token
-image, paint a colored aura, or add its own glow. This avoids the black frames,
-rectangular duplicates, and continuous character-sheet compositor invalidation
-caused by earlier color-preservation experiments.
-
-The Visuals settings tab includes two independent, enabled-by-default module
-integrations:
-
-- **Use TokenMagic FX** applies the persistent animated token fire filter and
-  requires TokenMagic FX.
-- **Use Sequencer/JB2A Transformation** plays the full-color Sacred Flame
-  transformation and requires Sequencer plus either JB2A Patreon or the free
-  JB2A D&D5e module.
-
-If an enabled dependency is unavailable, Soul Burn reports the missing visual
-integration and continues its mechanics, token transformation, sound, and
-battlefield ripple.
+Aether Surge is self-oriented. It does not apply its Item result to a selected
+target, and it does not disturb the player's current target selection.
 
 ### Libra
 
-While Soul Burn is active, **Libra** appears alongside the other temporary
-actions. Target exactly one enemy and use Libra to publish its current HP, AC,
-Nether Index or Soul Burn from the target's tertiary resource, damage
-vulnerabilities, condition immunities, and the ranges of every attack the
-target possesses. Libra is a native 1/1 dnd5e Item use that recovers on a long
-rest.
+**Libra** is the scan.
 
-The ripple defaults to 10% additional contrast, 100% desaturation, and a
-60-second return to normal. Animation calls are guarded. If the canvas,
-Sequencer, JB2A, TokenMagic, or a transformed image is unavailable, the
-mechanical activation still completes.
+Read the balance of an enemy's body and defenses. Target one enemy you can see.
+Libra reveals its current Hit Points, Armor Class, damage vulnerabilities,
+condition immunities, and the ranges of all attacks it possesses.
 
-Ending Soul Burn removes the managed movement effect, removes the macro's
-TokenMagic filter, and restores the original token image.
+Libra also reads the target's tertiary resource when it is labeled **Nether
+Index** or **Soul Burn**, which is useful for enemies and special tokens that
+carry their own hidden Aether state.
 
-## Design notes
+Libra can be used once and returns on a long rest.
 
-- Multiclass characters may choose which available class Hit Die to spend.
-- The resource update and class Hit Die update are performed on the Actor the
-  macro resolved, never on an unrelated initially selected token.
-- A managed Active Effect doubles each existing movement type.
-- The source text mentions both `+15 ft` and double movement. This implementation
-  follows the detailed Soul Burn rule and uses **double movement**.
-- Duration is recorded in combat rounds and shown when it has elapsed. Ending
-  remains deliberate so the table can resolve the final action and Burnout in
-  the correct narrative order.
+### Channel Aether
 
-## Validation
+**Channel Aether** is the radiant beam.
 
-The module JavaScript can be syntax-checked directly:
+The character gathers Aether and makes a radiant attack against a visible enemy.
+On a hit, the target takes Radiant damage equal to the character's largest Hit
+Die plus total character level. This does not consume a Hit Die.
+
+Channel Aether has uses equal to the character's proficiency bonus and returns
+on a short or long rest. It uses Foundry/dnd5e's native Item attack and damage
+workflow.
+
+### Fate Shift
+
+**Fate Shift** is the rule-bend.
+
+The player declares an action that bends, breaks, or modifies the normal rules
+of the game. The GM approves and adjudicates it. This is not permission to
+manifest infinite resources or simply wish an enemy dead.
+
+Scholars have long collected exploits and chronicled it in the Book of Soul
+Burn.
+
+The GM can choose whether Fate Shift uses a countdown timer or a player-facing
+confirmation button. The native Item use is delayed until the timer resolves or
+the button is pressed. Fate Shift only ends Soul Burn automatically if the GM
+enables **Automatically End Soul Burn on Fate Shift**.
+
+### Exit Soul Burn
+
+**Exit Soul Burn** ends the current transformation.
+
+Ending resolves the full Soul Burn end workflow: movement restoration, token
+restoration, ending sound, visual cleanup, Burnout resolution, and optional
+Constitution save request.
+
+If the character exits early during the same combat in which Soul Burn began,
+each wholly unused future round reduces current Soul Burn by 1. The current
+round is already being used and is not refunded. Outside combat, early ending
+does not reduce Soul Burn.
+
+## AetherGlow And AGT
+
+AetherGlow is administered through the **Holy Amulet of Lux Eterna**, included
+in the compendium as a Legendary equipment Item with 6 charges.
+
+AetherGlow always restores HP. If the recipient has Soul Burn, it also reduces
+Soul Burn. Both effects are reduced by AG Tolerance, and each exposure
+increases tolerance by 1 up to a maximum of 19.
+
+The administered roll is:
+
+```text
+max(1, 1d20 - AGT)
+```
+
+That means AetherGlow always gives at least a spark of life, even when a
+character has become highly tolerant.
+
+The AetherGlow workflow:
+
+- The administering character rolls the AetherGlow.
+- The recipient heals from the final result.
+- If the recipient has Soul Burn, their Soul Burn is reduced by the same final
+  result, clamped at their current Soul Burn.
+- The recipient's AGT increases by 1, to a maximum of 19.
+- Player characters are listed first in the recipient picker.
+- Active-scene NPCs are listed beneath players.
+- Vehicles are excluded.
+
+## High Stakes Mode
+
+High Stakes Mode turns Soul Burn into a rising temptation.
+
+Normally, each activation rolls one chosen Hit Die. With High Stakes Mode
+enabled, the number of dice increases with lifetime Soul Burn uses:
+
+```text
+first use: 1 die
+second use: 2 dice
+third use: 3 dice
+fourth use: 4 dice
+```
+
+The total roll adds to Soul Burn. The first die alone determines the duration
+in rounds.
+
+This makes later activations more explosive and more dangerous. The player may
+get a bigger burst, but their soul climbs closer to Burnout.
+
+### AetherGlow Reduces Soul Burn Die
+
+This optional High Stakes setting creates push-and-pull.
+
+When enabled, AetherGlow exposure reduces the character's future High Stakes
+Soul Burn die progression by one step. It does not remove lifetime uses. Uses
+continue increasing normally.
+
+The effective formula is:
+
+```text
+next dice = max(1, Lifetime Uses + 1 - AGDR)
+```
+
+The Soul Burn dashboard displays this as **AG Die Reduction**. Player Uses
+abbreviates it as **AGDR**.
+
+## Burnout
+
+If current Soul Burn ever exceeds maximum Soul Burn, Burnout becomes pending.
+The character's soul is destroyed when the current burn period ends.
+
+The module announces Burnout with a character-specific chat card and one of ten
+finale texts. It does not delete the Actor. The table keeps narrative control
+over the last farewell, the body collapsing into ash, and any epilogue.
+
+## Combat Duration
+
+When Soul Burn starts during an active combat, the module records:
+
+- Combat ID.
+- Activation round.
+- Duration rolled.
+- Ending round.
+
+If Soul Burn begins in round `R` and lasts `N` rounds, it remains active through
+round `R + N - 1` and ends when round `R + N` begins.
+
+If no active combat round is found, duration is tracked manually and reported
+that way in chat.
+
+## Movement Automation
+
+At activation, the module reads the character's current movement speeds and
+applies a managed Active Effect that doubles every nonzero movement mode:
+
+- Walk
+- Fly
+- Swim
+- Climb
+- Burrow
+
+The Actor's base values are not permanently overwritten. Ending Soul Burn
+removes the managed effect and restores normal sheet display.
+
+## Visuals And Sounds
+
+The module bundles three sounds:
+
+- `AetherUp3.ogg`, played when Soul Burn activates.
+- `AetherGlow.ogg`, played when AetherGlow is consumed.
+- `RagePowerDown.ogg`, played when Soul Burn ends.
+
+In **Configure Settings -> Module Settings -> Soul Burn Settings**, the GM can
+set each sound path, browse for a file, preview it, restore the bundled
+default, and control its volume.
+
+The Visuals tab controls:
+
+- Use Sequencer/JB2A Transformation.
+- Use TokenMagic FX.
+- Battlefield ripple delay.
+- Contrast increase.
+- Desaturation.
+- Return-to-normal duration.
+- Show AGT in the inventory bar.
+- Show rounds remaining in the inventory bar.
+
+The intended visual sequence is:
+
+1. Full-color transformation animation plays.
+2. The token transforms.
+3. A grayscale ripple expands outward from the character.
+4. The battlefield becomes desaturated and contrasty.
+5. The transformed token and its token effects remain in color.
+6. The battlefield fades back to normal over the configured real-time duration.
+
+## GM Settings
+
+Soul Burn settings are organized into three tabs.
+
+### Sounds
+
+- Soul Burn power-up sound and volume.
+- Soul Burn ending sound and volume.
+- AetherGlow drinking sound and volume.
+- Browse, preview, and restore bundled default controls.
+
+### Visuals
+
+- Enable or disable Sequencer/JB2A transformation support.
+- Enable or disable TokenMagic FX support.
+- Configure battlefield ripple delay.
+- Configure contrast, desaturation, and return time.
+- Show or hide AGT in the Soul Burn inventory bar.
+- Show or hide rounds remaining in the Soul Burn inventory bar.
+
+### Mechanics
+
+- High Stakes Mode.
+- AetherGlow Reduces Soul Burn Die.
+- Constitution save request on Soul Burn end.
+- Constitution save DC.
+- Escalating Constitution save DC.
+- Apply exhaustion on failed Constitution save.
+- Fate Shift countdown seconds.
+- Fate Shift message.
+- Fate Shift button mode.
+- Automatically End Soul Burn on Fate Shift.
+
+Constitution saves are requested in chat for the owning player to roll. The
+module does not silently roll them for the player.
+
+## GM Player Management
+
+Under **Configure Settings -> Module Settings -> Soul Burn Players**, the GM can
+review and edit:
+
+- Current Soul Burn.
+- Lifetime Uses.
+- AGT.
+- AGDR.
+- Active or inactive status.
+- Active combat duration tracking.
+- Character-specific transformed token image.
+
+The GM can clear AGT per character or reset all AGT. Clearing an inactive
+character at 0 Soul Burn can also blank the tertiary resource so Soul Burn no
+longer remains on the sheet as a resource label.
+
+If the GM clears or resets Soul Burn while a character is actively burning, the
+module first resolves the full end workflow. Burnout checks are not skipped.
+
+## Compendium Contents
+
+The **Soul Burn Features** compendium contains:
+
+- Soul Burn
+- Aether Surge
+- Libra
+- Channel Aether
+- Fate Shift
+- Holy Amulet of Lux Eterna
+
+Drag **Soul Burn** and the amulet onto player character sheets. The active-burn
+temporary Items are copied automatically while Soul Burn is active.
+
+## Frequently Asked Questions
+
+### Is Soul Burn a class feature?
+
+No. It is written as a campaign power that can be granted to any character.
+That makes it easy to use as a relic awakening, divine mark, Aether infection,
+boss-fight reward, or party-wide limit-break system.
+
+### Does entering Soul Burn spend a Hit Die?
+
+No. The character must have at least one available Hit Die to enter Soul Burn,
+but entry only rolls the chosen die. Aether Surge is the move that spends Hit
+Dice.
+
+### Why does Soul Burn use the tertiary resource?
+
+The third resource slot is visible on dnd5e sheets and works well as a
+character-facing reservoir. For enemies, the same slot can be labeled **Nether
+Index** or **Soul Burn**, and Libra can read it.
+
+### Does Soul Burn delete a character on Burnout?
+
+No. Burnout is absolute in the rules, but the module does not delete Actors.
+It posts the result and leaves the GM and table in control of the final scene.
+
+### Can a player use Soul Burn without a selected token?
+
+Yes, if the user has an assigned character. The module resolves the actor from
+the controlled token first, then from the user's assigned character.
+
+### Can the GM activate Soul Burn for a player?
+
+Yes. A GM can select a player-owned token and run the same workflow for that
+character.
+
+### Does it work without Tidy5e Sheet?
+
+The core mechanics still work. Tidy5e is recommended because the active Soul
+Burn inventory section is designed to sit cleanly above Weapons on the Tidy5e
+Inventory tab.
+
+### Does AetherGlow work on characters without Soul Burn?
+
+Yes. AetherGlow always heals. If the recipient does not have a Soul Burn
+resource, the module heals them and does not rename or overwrite their tertiary
+resource.
+
+### Why does AetherGlow always heal at least 1?
+
+Because AetherGlow is life itself. AGT can dull the effect, but it cannot make
+the result negative or entirely inert.
+
+### What is AGT?
+
+AGT is AG Tolerance. It is subtracted from AetherGlow's healing and Soul Burn
+recovery roll. Each AetherGlow exposure increases AGT by 1, to a maximum of 19.
+
+### What is AGDR?
+
+AGDR is AetherGlow Die Reduction. When the optional High Stakes setting is
+enabled, AetherGlow can reduce the next High Stakes Soul Burn die progression.
+It does not reduce lifetime uses.
+
+### Can Fate Shift automatically end Soul Burn?
+
+Yes, but it is off by default. Enable **Automatically End Soul Burn on Fate
+Shift** in Mechanics if you want Fate Shift to close the transformation after
+its timer or confirmation button resolves.
+
+### What happens if Soul Burn ends outside combat?
+
+It ends normally, but early-end Soul Burn point recovery only applies inside
+the tracked combat where Soul Burn began.
+
+### Can I change the sounds and transformed token images?
+
+Yes. Sounds are configurable in GM settings. Character-specific transformed
+token images are configured in Soul Burn Player Management.
+
+### Does Libra reveal hidden GM-only information?
+
+Libra publishes the fields the module can read from the target Actor: HP, AC,
+damage vulnerabilities, condition immunities, attack ranges, and qualifying
+tertiary resources. Use it as an intentional player-facing scan power.
+
+### Does the module include JB2A or TokenMagic assets?
+
+No. It can call those modules when installed, but it does not redistribute
+third-party animation packages or token art.
+
+## Technical Notes
+
+- Actor state is stored in `flags.world.soulBurn`.
+- Module Item metadata uses `flags.soul-burn`.
+- The Soul Burn resource remains in `system.resources.tertiary`.
+- Temporary Soul Burn Items are managed copies and are removed on end.
+- The permanent Soul Burn feature remains on the character sheet.
+- The module never deletes an Actor.
+- The module syntax can be checked with:
 
 ```bash
 node --check scripts/soul-burn.js
@@ -501,5 +543,6 @@ node --check scripts/soul-burn.js
 ## License
 
 This repository does not grant redistribution rights to JB2A, TokenMagic, sound,
-token art, or other third-party/campaign assets. Those assets are referenced but
-not included.
+token art, or other third-party/campaign assets. Those assets are referenced or
+integrated with when available, but they are not included unless explicitly
+bundled in this module.

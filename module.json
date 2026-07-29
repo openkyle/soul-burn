@@ -1,8 +1,8 @@
 {
   "id": "soul-burn",
   "title": "Soul Burn",
-  "description": "A complete player and GM workflow for the Soul Burn homebrew system in Foundry VTT dnd5e.",
-  "version": "1.0.48",
+  "description": "A limit-break style Soul Burn system for Foundry VTT dnd5e, giving players explosive Aether-powered transformations, temporary actions, movement boosts, risk, recovery, and Burnout drama.",
+  "version": "1.0.49",
   "compatibility": {
     "minimum": "11",
     "verified": "13"
