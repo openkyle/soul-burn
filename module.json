@@ -2,7 +2,7 @@
   "id": "soul-burn",
   "title": "Soul Burn",
   "description": "A limit-break style Soul Burn system for Foundry VTT dnd5e, giving players explosive Aether-powered transformations, temporary actions, movement boosts, risk, recovery, and Burnout drama.",
-  "version": "1.0.49",
+  "version": "1.0.50",
   "compatibility": {
     "minimum": "11",
     "verified": "13"

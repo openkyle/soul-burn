@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.50
+
+- Soul Burn activation now tracks combat duration only when the current combat
+  is actually started, belongs to the active token's scene, and includes that
+  token as a combatant. Populated but unstarted encounters no longer inherit
+  stale previous-combat round tracking.
+- Soul Burn activation now saves state and posts the activation chat card while
+  the transformation animation continues instead of waiting for the full visual
+  sequence to finish.
+- Early-exit ending cards now explicitly report unused combat round Soul Burn
+  reduction whenever unused future rounds are available.
+
 ## 1.0.49
 
 - Rewrote the GitHub README as a full module guide with a stronger Soul Burn

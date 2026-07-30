@@ -2059,9 +2059,15 @@ async function activate(actor, token) {
     await actor.deleteEmbeddedDocuments("ActiveEffect", staleMovementEffects);
   }
   const baseMovement = movementSpeeds(actor);
-  const combat = game.combat;
+  const combat = activeStartedCombat(token);
   const combatRound = Number(combat?.round ?? 0);
-  const trackCombat = Boolean(combat && combatRound > 0);
+  const trackCombat = Boolean(combat);
+  const originalImages = { ...(current.originalImages ?? {}) };
+  if (token?.document?.uuid && !tokenImagePath(originalImages[token.document.uuid])) {
+    originalImages[token.document.uuid] = tokenImagePath(token.document.texture)
+      || tokenImagePath(token.document.img)
+      || prototypeTokenImage(token.actor);
+  }
   const next = {
     ...current,
     burn: current.burn + roll.total,
@@ -2073,7 +2079,8 @@ async function activate(actor, token) {
     startedRound: trackCombat ? combatRound : null,
     endsRound: trackCombat ? combatRound + durationRounds : null,
     durationRounds,
-    baseMovement
+    baseMovement,
+    originalImages
   };
 
   // Resolve and copy all three compendium actions before changing the active
@@ -2081,10 +2088,12 @@ async function activate(actor, token) {
   // marked active without the temporary action set.
   await ensureTemporarySoulBurnActions(actor);
   await applyMovement(actor);
-  await playAnimation(token, next);
   await saveState(actor, next);
   await syncSoulBurnFeature(actor, true);
   renderActorSheetSoon(actor);
+  void playAnimation(token, next).catch(error => {
+    console.warn("Soul Burn | Activation animation failed after mechanics resolved.", error);
+  });
   await chat(
     actor,
     "Soul Burn",
@@ -2127,10 +2136,46 @@ async function spendItemCharge(item, label) {
   await item.update({ "system.uses.value": charges - 1 });
 }
 
-function remainingUnusedCombatRounds(current, combat = game.combat) {
+function isStartedCombat(combat) {
+  if (!combat) return false;
+  const round = Number(combat.round ?? 0);
+  if (!Number.isFinite(round) || round <= 0) return false;
+  if ("started" in combat && combat.started !== true) return false;
+  return true;
+}
+
+function activeStartedCombat(token = null) {
+  const combat = game.combat;
+  if (!isStartedCombat(combat)) return null;
+
+  const tokenSceneId = token?.document?.parent?.id
+    ?? token?.scene?.id
+    ?? canvas?.scene?.id;
+  const combatSceneId = combat.scene?.id ?? combat.sceneId;
+  if (tokenSceneId && combatSceneId && tokenSceneId !== combatSceneId) {
+    return null;
+  }
+
+  const tokenId = token?.document?.id;
+  const combatants = Array.from(
+    combat.combatants?.contents ?? combat.combatants ?? []
+  );
+  if (tokenId && combatants.length) {
+    const belongsToCombat = combatants.some(combatant =>
+      combatant.tokenId === tokenId
+      || combatant.token?.id === tokenId
+    );
+    if (!belongsToCombat) return null;
+  }
+
+  return combat;
+}
+
+function remainingUnusedCombatRounds(current, combat = activeStartedCombat()) {
   if (
     !current.combatId
     || !combat
+    || !isStartedCombat(combat)
     || combat.id !== current.combatId
     || current.endsRound === null
   ) return 0;
@@ -2175,7 +2220,7 @@ async function endBurn(
   const current = state(actor);
   if (!current.active) return;
 
-  const activeCombat = game.combat;
+  const activeCombat = activeStartedCombat();
   const hasSuppliedUnusedRounds = unusedCombatRounds !== null
     && unusedCombatRounds !== undefined
     && Number.isFinite(Number(unusedCombatRounds));
@@ -2253,7 +2298,7 @@ async function endBurn(
   const durationSummary = current.combatId && current.startedRound !== null
     ? `<p><strong>Tracked Period:</strong> Round ${current.startedRound} through the end of round ${Number(current.endsRound) - 1}.</p>`
     : "";
-  const refundSummary = burnRefund > 0
+  const refundSummary = unusedRounds > 0
     ? `<p><strong>Early Exit:</strong> ${unusedRounds} remaining unused combat round${unusedRounds === 1 ? "" : "s"} removed <strong>${burnRefund} Soul Burn</strong> (${currentBurn} → ${nextBurn}).</p>`
     : "";
   const restoredMovement = movementSpeeds(actor);
@@ -2354,7 +2399,7 @@ async function fateShift(actor) {
   if (!confirmed) return;
   const unusedCombatRounds = remainingUnusedCombatRounds(
     state(actor),
-    game.combat
+    activeStartedCombat()
   );
   if (game.settings.get("soul-burn", "autoEndOnFateShift")) {
     await endBurn(actor, "Fate Shift", { unusedCombatRounds });
@@ -2688,11 +2733,12 @@ async function dashboard(actor, token) {
   const diceText = dice.length
     ? dice.map(c => `${esc(c.item.name)}: ${c.remaining}/${c.levels}d${c.faces}`).join("<br>")
     : "No class Hit Dice found";
+  const activeCombat = activeStartedCombat();
   const combatWarning = current.active
-    && game.combat
-    && current.combatId === game.combat.id
+    && activeCombat
+    && current.combatId === activeCombat.id
     && current.endsRound !== null
-    && game.combat.round >= current.endsRound
+    && activeCombat.round >= current.endsRound
     ? `<p class="notification warning">The recorded burn period has ended. The GM client is restoring the transformation.</p>`
     : "";
 
@@ -2771,6 +2817,7 @@ async function openSoulBurn({ actor = null, token = null } = {}) {
 
 function soulBurnInventoryData(actor) {
   const current = state(actor);
+  const activeCombat = activeStartedCombat();
   const hitDice = classData(actor);
   const hitDiceRemaining = hitDice.reduce(
     (total, entry) => total + entry.remaining,
@@ -2825,8 +2872,8 @@ function soulBurnInventoryData(actor) {
       "showRoundsInInventoryBar"
     ),
     actions,
-    roundsLabel: current.combatId && current.endsRound !== null && game.combat?.id === current.combatId
-      ? `${Math.max(0, Number(current.endsRound) - Number(game.combat.round ?? 0))} rounds remain`
+    roundsLabel: current.combatId && current.endsRound !== null && activeCombat?.id === current.combatId
+      ? `${Math.max(0, Number(current.endsRound) - Number(activeCombat.round ?? 0))} rounds remain`
       : current.durationRounds > 0
         ? `${current.durationRounds} rounds (manual)`
         : "Manual duration"
@@ -3052,7 +3099,7 @@ Hooks.once("ready", async () => {
     open: openSoulBurn,
     run: runSoulBurnAction,
     getState: actor => state(actor),
-    version: "1.0.49"
+    version: "1.0.50"
   });
 
   await cleanLegacyCompendiumIndex();
@@ -3122,7 +3169,8 @@ Hooks.once("ready", async () => {
     else await removeTemporarySoulBurnActions(actor);
     if (hasSoulBurn) await syncSoulBurnFeature(actor, state(actor).active);
   }
-  if (game.combat) await expireDueSoulBurn(game.combat);
+  const activeCombat = activeStartedCombat();
+  if (activeCombat) await expireDueSoulBurn(activeCombat);
 
   const command = "game.soulBurn.open();";
   let macro = game.macros.getName("Soul Burn");
@@ -3716,7 +3764,7 @@ async function scheduleFateShiftItemUse(item) {
     // system integration changes the current combat reference.
     const unusedCombatRounds = remainingUnusedCombatRounds(
       state(actor),
-      game.combat
+      activeStartedCombat()
     );
 
     // Release exactly one native use after confirmation. All pre-use,
@@ -3914,7 +3962,7 @@ Hooks.on("renderItemSheet", (app, html) => {
 const expiringSoulBurnActors = new Set();
 
 async function expireDueSoulBurn(combat) {
-  if (!game.user.isGM || !combat) return;
+  if (!game.user.isGM || !isStartedCombat(combat)) return;
   const primaryGM = game.users
     .filter(user => user.isGM && user.active)
     .sort((a, b) => a.id.localeCompare(b.id))[0];
