@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.53
+
+- AetherGlow now cancels pending Burnout when administered before Soul Burn ends and recovery brings current Soul Burn down to or below its maximum. Insufficient recovery leaves Burnout pending.
+
 ## 1.0.52
 
 - AetherGlow now banks permanent AGDR with no minimum-die restriction, including before Soul Burn is acquired.

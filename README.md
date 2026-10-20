@@ -304,7 +304,10 @@ for duration only. Existing Soul Burn is unchanged.
 ## Burnout
 
 If current Soul Burn ever exceeds maximum Soul Burn, Burnout becomes pending.
-The character's soul is destroyed when the current burn period ends.
+The character's soul is destroyed when the current burn period ends unless
+AetherGlow is administered beforehand and brings Soul Burn down to or below
+the maximum. Its recovery is reduced by AGT as usual. Recovery that leaves
+Soul Burn above the maximum does not cancel pending Burnout.
 
 The module announces Burnout with a character-specific chat card and one of ten
 finale texts. It does not delete the Actor. The table keeps narrative control

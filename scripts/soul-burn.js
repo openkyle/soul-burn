@@ -2498,6 +2498,7 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
   const next = {
     ...current,
     burn: Math.max(0, current.burn - removed),
+    burnout: current.burnout && Math.max(0, current.burn - removed) > maximumBurn(targetActor),
     tolerance: nextTolerance,
     aetherglowDieReduction: nextDieReduction
   };
@@ -2521,6 +2522,7 @@ async function applyAetherglow(targetActor, sourceActor = targetActor) {
      <p><strong>Soul Burn Recovery:</strong> ${recovery}</p>
      <p><strong>Soul Burn Cleared:</strong> ${removed}</p>
      <p><strong>Soul Burn:</strong> ${current.burn} → ${next.burn}</p>
+     ${current.burnout && !next.burnout ? "<p><strong>Burnout prevented.</strong> Soul Burn is back within the safe limit.</p>" : ""}
      <p><strong>AGT:</strong> ${current.tolerance} → ${next.tolerance}</p>
      ${progressionSummary}
      <p><em>${removed > 0
