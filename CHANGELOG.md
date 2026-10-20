@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.51
+
+- Added an editable AGDR field to Player Management, including characters without a Soul Burn resource. Saving zero Soul Burn preserves the edited AGDR value.
+
 ## 1.0.50
 
 - Soul Burn activation now tracks combat duration only when the current combat

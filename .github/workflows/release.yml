@@ -2,6 +2,8 @@ name: Release Foundry Module
 
 on:
   push:
+    branches: [main]
+    paths: [module.json]
     tags:
       - "v*"
 
@@ -13,6 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read module version
+        run: echo "MODULE_VERSION=$(node -p "require('./module.json').version")" >> "$GITHUB_ENV"
+
+      - name: Verify module
+        run: |
+          node --check scripts/soul-burn.js
+          node --test tests/*.test.cjs
 
       - name: Build module archive
         run: |
@@ -26,6 +36,9 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.MODULE_VERSION }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           files: |
             dist/module.json
             dist/soul-burn.zip

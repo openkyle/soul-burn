@@ -336,7 +336,7 @@ class SoulBurnPlayerManager extends FormApplication {
       id: "soul-burn-player-manager",
       title: "Soul Burn Player Management",
       template: "modules/soul-burn/templates/player-management.hbs",
-      width: 820,
+      width: 900,
       height: "auto",
       closeOnSubmit: true
     });
@@ -426,13 +426,15 @@ class SoulBurnPlayerManager extends FormApplication {
         ...current,
         burn: submittedBurn,
         uses: Math.max(0, Number(formData[`${prefix}uses`] ?? current.uses)),
-        tolerance: Math.min(19, Math.max(0, Number(formData[`${prefix}tolerance`] ?? current.tolerance)))
+        tolerance: Math.min(19, Math.max(0, Number(formData[`${prefix}tolerance`] ?? current.tolerance))),
+        aetherglowDieReduction: Math.max(0, Math.floor(Number(formData[`${prefix}aetherglowDieReduction`] ?? current.aetherglowDieReduction) || 0))
       };
 
       if (hasBurnInput && submittedBurn === 0) {
         await clearSoulBurnFromSheet(actor, {
           tolerance: next.tolerance,
           uses: next.uses,
+          aetherglowDieReduction: next.aetherglowDieReduction,
           reason: "Soul Burn reset from Player Management"
         });
         continue;
@@ -1328,6 +1330,7 @@ async function clearSoulBurnFromSheet(
   {
     tolerance = state(actor).tolerance,
     uses = state(actor).uses,
+    aetherglowDieReduction = state(actor).aetherglowDieReduction,
     reason = "Soul Burn reset"
   } = {}
 ) {
@@ -1342,6 +1345,7 @@ async function clearSoulBurnFromSheet(
     ...ended,
     burn: 0,
     uses: Math.max(0, Number(uses) || 0),
+    aetherglowDieReduction: Math.max(0, Math.floor(Number(aetherglowDieReduction) || 0)),
     tolerance: Math.min(19, Math.max(0, Number(tolerance) || 0)),
     active: false,
     burnout: false,

@@ -114,7 +114,7 @@
 
 .soul-burn-player-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) 120px 75px 105px 110px 165px;
+  grid-template-columns: minmax(180px, 2fr) 120px 65px 65px 65px 100px 165px;
   align-items: center;
   gap: 6px;
   padding: 6px 0;

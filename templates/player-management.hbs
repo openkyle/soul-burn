@@ -2,6 +2,8 @@
   <p class="notes">
     Manage player Soul Burn data. AGT reduces the amount removed by
     AetherGlow and increases by one after each use, to a maximum of 19.
+    AGDR is AetherGlow Die Reduction; it reduces future activation dice when
+    High Stakes Mode and AetherGlow Reduces Soul Burn Die are enabled.
   </p>
 
   <div class="soul-burn-player-grid soul-burn-player-heading">
@@ -9,6 +11,7 @@
     <span>Soul Burn</span>
     <span>Uses</span>
     <span>AGT</span>
+    <span title="AetherGlow Die Reduction">AGDR</span>
     <span>Status</span>
     <span>Controls</span>
   </div>
@@ -29,13 +32,11 @@
     </span>
     <span><input type="number" name="actors.{{id}}.uses" value="{{uses}}" min="0"></span>
     <span><input type="number" name="actors.{{id}}.tolerance" value="{{tolerance}}" min="0" max="19"></span>
+    <span><input type="number" name="actors.{{id}}.aetherglowDieReduction" value="{{aetherglowDieReduction}}" min="0" step="1" aria-label="{{name}} AetherGlow die reduction"></span>
     <span>
       {{#if active}}<strong>Active</strong>{{else}}Inactive{{/if}}
       {{#if combatTracking}}<small>{{combatTracking}}</small>{{/if}}
       {{#if burnout}}<strong class="soul-burn-danger">Burnout</strong>{{/if}}
-      {{#if ../showAetherglowDieReduction}}
-      <small>AetherGlow die reduction: {{aetherglowDieReduction}}</small>
-      {{/if}}
     </span>
     <span class="soul-burn-player-controls">
       <button type="button" data-clear-player="{{id}}" title="Clear AGT and remove the Soul Burn resource">
