@@ -290,11 +290,16 @@ continue increasing normally.
 The effective formula is:
 
 ```text
-next dice = max(1, Lifetime Uses + 1 - AGDR)
+next dice = max(0, Lifetime Uses + 1 - AGDR)
 ```
 
 The Soul Burn dashboard displays this as **AG Die Reduction**. Player Uses
 abbreviates it as **AGDR**.
+
+Every AetherGlow exposure banks one permanent AGDR while both options are
+enabled, even before the recipient has Soul Burn. AGDR is not spent on activation.
+A zero-dice activation adds no Soul Burn; roll one die of the selected type
+for duration only. Existing Soul Burn is unchanged.
 
 ## Burnout
 

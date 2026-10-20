@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.52
+
+- AetherGlow now banks permanent AGDR with no minimum-die restriction, including before Soul Burn is acquired.
+- Zero-dice activations gain no Soul Burn and roll a separate die for duration, using the normal activation card layout.
+
 ## 1.0.51
 
 - Added an editable AGDR field to Player Management, including characters without a Soul Burn resource. Saving zero Soul Burn preserves the edited AGDR value.
